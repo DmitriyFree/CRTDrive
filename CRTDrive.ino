@@ -1,52 +1,75 @@
 /*
-    ESP32 + DRV8833 CRT Deflection Demo
-    -----------------------------------
+    ESP32 + 4x DRV8833 CRT Deflection Demo
+    --------------------------------------
 
     Arduino ESP32 Core 3.x
 
-    Sign-magnitude drive
+    One DRV8833 per coil.
 
-    X+ -> AIN1
-    X- -> AIN2
+    TOP:
+        TOP+ -> AIN1
+        TOP- -> AIN2
 
-    Y+ -> BIN1
-    Y- -> BIN2
+    BOTTOM:
+        BOT+ -> AIN1
+        BOT- -> AIN2
+
+    LEFT:
+        LFT+ -> AIN1
+        LFT- -> AIN2
+
+    RIGHT:
+        RGT+ -> AIN1
+        RGT- -> AIN2
 */
 
 #include <Arduino.h>
 
-// ---------------- Pins ----------------
-
-const int X_POS_PIN = 25;
-const int X_NEG_PIN = 26;
-
-const int Y_POS_PIN = 27;
-const int Y_NEG_PIN = 14;
-
-// -------------- PWM Setup --------------
-
-const uint32_t PWM_FREQ = 50000;     // 50 kHz
+const uint32_t PWM_FREQ = 50000;
 const uint8_t PWM_BITS = 10;
-
 const uint16_t PWM_MAX = (1 << PWM_BITS) - 1;
 
-// ---------------- Gain -----------------
+//----------------------------------------------------
+// Pin assignment
+//----------------------------------------------------
 
-float gainX = 1.0f;
-float gainY = 1.0f;
+// Top
+const int TOP_POS = 2;
+const int TOP_NEG = 4;
 
-float amplitude = 0.80f;
-float speed = 0.60f;
+// Bottom
+const int BOT_POS = 16;
+const int BOT_NEG = 17;
 
-// ---------------------------------------
+// Left
+const int LFT_POS = 25;
+const int LFT_NEG = 26;
+
+// Right
+const int RGT_POS = 27;
+const int RGT_NEG = 14;
+
+//----------------------------------------------------
+// Calibration
+//----------------------------------------------------
+
+float gainTop    = 1.0f;
+float gainBottom = 1.0f;
+float gainLeft   = 1.0f;
+float gainRight  = 1.0f;
+
+float amplitude = 0.8f;
+float speed = 0.6f;
+
+//----------------------------------------------------
 
 void writeBridge(int pinPos, int pinNeg, float value)
 {
     value = constrain(value, -1.0f, 1.0f);
 
-    uint16_t duty = (uint16_t)(fabsf(value) * PWM_MAX);
+    uint16_t duty = fabsf(value) * PWM_MAX;
 
-    if (value >= 0.0f)
+    if(value >= 0)
     {
         ledcWrite(pinPos, duty);
         ledcWrite(pinNeg, 0);
@@ -58,21 +81,54 @@ void writeBridge(int pinPos, int pinNeg, float value)
     }
 }
 
+void setCoils(float top,
+              float bottom,
+              float left,
+              float right)
+{
+    writeBridge(TOP_POS, TOP_NEG, top * gainTop);
+    writeBridge(BOT_POS, BOT_NEG, bottom * gainBottom);
+
+    writeBridge(LFT_POS, LFT_NEG, left * gainLeft);
+    writeBridge(RGT_POS, RGT_NEG, right * gainRight);
+}
+
 void setXY(float x, float y)
 {
-    writeBridge(X_POS_PIN, X_NEG_PIN, x * gainX);
-    writeBridge(Y_POS_PIN, Y_NEG_PIN, y * gainY);
+    x = constrain(x, -1.0f, 1.0f);
+    y = constrain(y, -1.0f, 1.0f);
+
+    // Differential drive
+
+    setCoils(
+        +y,     // top
+        -y,     // bottom
+
+        +x,     // left
+        -x      // right
+    );
+}
+
+void attachPin(int pin)
+{
+    ledcAttach(pin, PWM_FREQ, PWM_BITS);
 }
 
 void setup()
 {
-    ledcAttach(X_POS_PIN, PWM_FREQ, PWM_BITS);
-    ledcAttach(X_NEG_PIN, PWM_FREQ, PWM_BITS);
+    attachPin(TOP_POS);
+    attachPin(TOP_NEG);
 
-    ledcAttach(Y_POS_PIN, PWM_FREQ, PWM_BITS);
-    ledcAttach(Y_NEG_PIN, PWM_FREQ, PWM_BITS);
+    attachPin(BOT_POS);
+    attachPin(BOT_NEG);
 
-    setXY(0.0f, 0.0f);
+    attachPin(LFT_POS);
+    attachPin(LFT_NEG);
+
+    attachPin(RGT_POS);
+    attachPin(RGT_NEG);
+
+    setCoils(0,0,0,0);
 }
 
 void loop()
@@ -82,7 +138,7 @@ void loop()
     float x = sinf(t) * amplitude;
     float y = cosf(t) * amplitude;
 
-    setXY(x, y);
+    setXY(x,y);
 
     delayMicroseconds(250);
 }
