@@ -1,32 +1,7 @@
-/*
-    ESP32 + 4x DRV8833 CRT Deflection Demo
-    --------------------------------------
-
-    Arduino ESP32 Core 3.x
-
-    One DRV8833 per coil.
-
-    TOP:
-        TOP+ -> AIN1
-        TOP- -> AIN2
-
-    BOTTOM:
-        BOT+ -> AIN1
-        BOT- -> AIN2
-
-    LEFT:
-        LFT+ -> AIN1
-        LFT- -> AIN2
-
-    RIGHT:
-        RGT+ -> AIN1
-        RGT- -> AIN2
-*/
-
 #include <Arduino.h>
 
-const uint32_t PWM_FREQ = 50000;
-const uint8_t PWM_BITS = 10;
+const uint32_t PWM_FREQ = 150000;
+const uint8_t PWM_BITS = 8;
 const uint16_t PWM_MAX = (1 << PWM_BITS) - 1;
 
 //----------------------------------------------------
@@ -34,20 +9,22 @@ const uint16_t PWM_MAX = (1 << PWM_BITS) - 1;
 //----------------------------------------------------
 
 // Top
-const int TOP_POS = 2;
-const int TOP_NEG = 4;
+const int LFT_POS = 2;
+const int LFT_NEG = 4;
 
 // Bottom
-const int BOT_POS = 16;
-const int BOT_NEG = 17;
+const int TOP_POS = 16;
+const int TOP_NEG = 17;
 
 // Left
-const int LFT_POS = 25;
-const int LFT_NEG = 26;
+const int RGT_POS = 25;
+const int RGT_NEG = 26;
 
 // Right
-const int RGT_POS = 27;
-const int RGT_NEG = 14;
+const int BOT_POS = 27;
+const int BOT_NEG = 14;
+
+const int COILS_ENABLE = 5;
 
 //----------------------------------------------------
 // Calibration
@@ -58,8 +35,8 @@ float gainBottom = 1.0f;
 float gainLeft   = 1.0f;
 float gainRight  = 1.0f;
 
-float amplitude = 0.8f;
-float speed = 0.6f;
+float amplitude = 1.0f;
+float speed = 1.0f;
 
 //----------------------------------------------------
 
@@ -78,6 +55,24 @@ void writeBridge(int pinPos, int pinNeg, float value)
     {
         ledcWrite(pinPos, 0);
         ledcWrite(pinNeg, duty);
+    }
+}
+void writeBridgeSimple(int pinPos, int pinNeg, float value)
+{
+    if (value > 0)
+    {
+        digitalWrite(pinPos, HIGH);
+        digitalWrite(pinNeg, LOW);
+    }
+    else if (value < 0)
+    {
+        digitalWrite(pinPos, LOW);
+        digitalWrite(pinNeg, HIGH);
+    }
+    else
+    {
+        digitalWrite(pinPos, LOW);
+        digitalWrite(pinNeg, LOW);
     }
 }
 
@@ -119,26 +114,46 @@ void setup()
     attachPin(TOP_POS);
     attachPin(TOP_NEG);
 
-    attachPin(BOT_POS);
-    attachPin(BOT_NEG);
-
     attachPin(LFT_POS);
     attachPin(LFT_NEG);
+    /*pinMode(TOP_POS, OUTPUT);
+    pinMode(TOP_NEG, OUTPUT);
+    pinMode(LFT_POS, OUTPUT);
+    pinMode(LFT_NEG, OUTPUT);*/
 
-    attachPin(RGT_POS);
-    attachPin(RGT_NEG);
-
-    setCoils(0,0,0,0);
+    pinMode(COILS_ENABLE, OUTPUT);
+    digitalWrite(COILS_ENABLE, true);
 }
 
 void loop()
 {
-    float t = millis() * 0.001f * speed;
+    /*writeBridgeSimple(LFT_POS, LFT_NEG, 1);
+    writeBridgeSimple(TOP_POS, TOP_NEG, -1);
+    delay(500);
+    writeBridgeSimple(LFT_POS, LFT_NEG, 0);
+    writeBridgeSimple(TOP_POS, TOP_NEG, 0);
+    delay(500);
+    writeBridgeSimple(LFT_POS, LFT_NEG, -1);
+    writeBridgeSimple(TOP_POS, TOP_NEG, 1);
+    delay(500);
+    writeBridgeSimple(LFT_POS, LFT_NEG, 0);
+    writeBridgeSimple(TOP_POS, TOP_NEG, 1);
+    delay(500);
+    writeBridgeSimple(LFT_POS, LFT_NEG, 1);
+    writeBridgeSimple(TOP_POS, TOP_NEG, 0);
+    delay(500);
+    writeBridgeSimple(LFT_POS, LFT_NEG, -1);
+    writeBridgeSimple(TOP_POS, TOP_NEG, 0);
+    delay(500);
+    writeBridgeSimple(LFT_POS, LFT_NEG, 0);
+    writeBridgeSimple(TOP_POS, TOP_NEG, -1);
+    delay(500);*/
+    float t = micros() * 1e-6f * speed;
 
     float x = sinf(t) * amplitude;
     float y = cosf(t) * amplitude;
 
     setXY(x,y);
 
-    delayMicroseconds(250);
+    //delayMicroseconds(250);
 }
