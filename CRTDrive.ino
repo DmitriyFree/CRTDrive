@@ -25,6 +25,7 @@ const int BOT_POS = 27;
 const int BOT_NEG = 14;
 
 const int COILS_ENABLE = 5;
+const int ALPHA_CHANNEL = 18;
 
 //----------------------------------------------------
 // Calibration
@@ -108,7 +109,9 @@ void attachPin(int pin)
 {
     ledcAttach(pin, PWM_FREQ, PWM_BITS);
 }
-
+bool isOutput = false;
+unsigned long lastToggle = 0;
+const unsigned long TOGGLE_INTERVAL = 500; 
 void setup()
 {
     attachPin(TOP_POS);
@@ -122,6 +125,7 @@ void setup()
     pinMode(LFT_NEG, OUTPUT);*/
 
     pinMode(COILS_ENABLE, OUTPUT);
+    pinMode(ALPHA_CHANNEL, INPUT);
     digitalWrite(COILS_ENABLE, true);
 }
 
@@ -154,6 +158,21 @@ void loop()
     float y = cosf(t) * amplitude;
 
     setXY(x,y);
+
+    unsigned long now = millis();
+
+    if (now - lastToggle >= TOGGLE_INTERVAL) {
+        lastToggle = now;
+
+        isOutput = !isOutput;
+
+        if (isOutput) {
+            pinMode(ALPHA_CHANNEL, OUTPUT);
+            digitalWrite(ALPHA_CHANNEL, LOW);
+        } else {
+            pinMode(ALPHA_CHANNEL, INPUT);
+        }
+    }
 
     //delayMicroseconds(250);
 }
