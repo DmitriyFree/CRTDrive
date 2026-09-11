@@ -7,7 +7,7 @@ constexpr int AIN2_PIN = 19;
 constexpr int PWM_FREQUENCY = 10000;
 constexpr int PWM_RESOLUTION = 8;
 
-constexpr int MAX_DUTY = 80;
+constexpr int MAX_DUTY = 100;
 constexpr int SWING_TIME_MS = 2000;
 
 void driveCoil(int duty)
