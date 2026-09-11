@@ -4,23 +4,21 @@ constexpr int STBY_PIN = 17;
 constexpr int AIN1_PIN = 18;
 constexpr int AIN2_PIN = 19;
 
-constexpr int PWM_FREQUENCY = 10000;
+constexpr int PWM_FREQUENCY = 100000;
 constexpr int PWM_RESOLUTION = 8;
 
-constexpr uint8_t PWM_DUTY = 255;
+constexpr int STEP_DELAY_MS = 10;
 
-void positive()
+void setPositive(uint8_t duty)
 {
-    // Forward PWM, slow decay
-    ledcWrite(AIN1_PIN, PWM_DUTY);
+    ledcWrite(AIN1_PIN, duty);
     ledcWrite(AIN2_PIN, 0);
 }
 
-void negative()
+void setNegative(uint8_t duty)
 {
-    // Reverse PWM, slow decay
     ledcWrite(AIN1_PIN, 0);
-    ledcWrite(AIN2_PIN, PWM_DUTY);
+    ledcWrite(AIN2_PIN, duty);
 }
 
 void off()
@@ -32,8 +30,6 @@ void off()
 void setup()
 {
     pinMode(STBY_PIN, OUTPUT);
-    pinMode(AIN1_PIN, OUTPUT);
-    pinMode(AIN2_PIN, OUTPUT);
 
     digitalWrite(STBY_PIN, HIGH);
 
@@ -45,15 +41,13 @@ void setup()
 
 void loop()
 {
-    positive();
-    delay(2000);
 
-    off();
-    delay(1000);
+        setPositive(255);
+        delay(STEP_DELAY_MS);
 
-    negative();
-    delay(2000);
+        setNegative(255);
+        delay(STEP_DELAY_MS);
 
-    off();
-    delay(1000);
+        off();
+        delay(STEP_DELAY_MS);
 }
