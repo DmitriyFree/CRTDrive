@@ -1,53 +1,79 @@
 #include <Arduino.h>
 
-constexpr int STBY_PIN = 17;
-constexpr int AIN1_PIN = 18;
-constexpr int AIN2_PIN = 19;
+// DRV8876 pins
+constexpr int IN1_PIN    = 18;  // PWM / EN
+constexpr int IN2_PIN    = 19;  // PH / direction
+constexpr int NSLEEP_PIN = 17;
+
+constexpr int NFAULT_PIN = 16; // optional
+constexpr int CS_PIN     = 34; // optional ADC input
 
 constexpr int PWM_FREQUENCY = 100000;
 constexpr int PWM_RESOLUTION = 8;
 
 constexpr int STEP_DELAY_MS = 10;
 
+
+// ------------------------------------------------------------
+// Coil control
+// ------------------------------------------------------------
+
 void setPositive(uint8_t duty)
 {
-    ledcWrite(AIN1_PIN, duty);
-    ledcWrite(AIN2_PIN, 0);
+    // PH = 1
+    digitalWrite(IN2_PIN, HIGH);
+
+    // EN = PWM
+    ledcWrite(IN1_PIN, duty);
 }
 
 void setNegative(uint8_t duty)
 {
-    ledcWrite(AIN1_PIN, 0);
-    ledcWrite(AIN2_PIN, duty);
+    // PH = 0
+    digitalWrite(IN2_PIN, LOW);
+
+    // EN = PWM
+    ledcWrite(IN1_PIN, duty);
 }
 
 void off()
 {
-    ledcWrite(AIN1_PIN, 0);
-    ledcWrite(AIN2_PIN, 0);
+    ledcWrite(IN1_PIN, 0);
 }
+
+
+// ------------------------------------------------------------
+// Setup
+// ------------------------------------------------------------
 
 void setup()
 {
-    pinMode(STBY_PIN, OUTPUT);
+    pinMode(NSLEEP_PIN, OUTPUT);
+    pinMode(IN2_PIN, OUTPUT);
 
-    digitalWrite(STBY_PIN, HIGH);
+    pinMode(NFAULT_PIN, INPUT_PULLUP);
 
-    ledcAttach(AIN1_PIN, PWM_FREQUENCY, PWM_RESOLUTION);
-    ledcAttach(AIN2_PIN, PWM_FREQUENCY, PWM_RESOLUTION);
+    digitalWrite(NSLEEP_PIN, HIGH);
+
+    // IN1 is the PWM input
+    ledcAttach(IN1_PIN, PWM_FREQUENCY, PWM_RESOLUTION);
 
     off();
 }
 
+
+// ------------------------------------------------------------
+// Test
+// ------------------------------------------------------------
+
 void loop()
 {
+    setPositive(50);
+    delay(STEP_DELAY_MS);
 
-        setPositive(255);
-        delay(STEP_DELAY_MS);
+    setNegative(50);
+    delay(STEP_DELAY_MS);
 
-        setNegative(255);
-        delay(STEP_DELAY_MS);
-
-        off();
-        delay(STEP_DELAY_MS);
+    off();
+    delay(STEP_DELAY_MS);
 }
