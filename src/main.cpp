@@ -1,74 +1,165 @@
 #include <Arduino.h>
 
-constexpr int IN1_PIN    = 16;   // EN / PWM
-constexpr int IN2_PIN    = 17;   // PH / direction
-constexpr int NSLEEP_PIN = 5;
-constexpr int NFAULT_PIN = 18;
+// ============================================================
+// Hardware
+// ============================================================
 
-constexpr int PWM_FREQ = 100000;
-constexpr int PWM_BITS = 8;
+constexpr int DEFLECTION_PWM_PIN = 16;  // DRV8876 EN / PWM
+constexpr int DEFLECTION_DIR_PIN = 17;  // DRV8876 PH / direction
+constexpr int DRIVER_SLEEP_PIN   = 5;
+constexpr int DRIVER_FAULT_PIN   = 18;
 
-// Time between amplitude updates.
-// Increase this if you want slower motion.
-constexpr int STEP_DELAY_MS = 0;
+constexpr int BEAM_ALPHA_PIN     = 15;
 
-void setCurrent(int value)
+// ============================================================
+// Deflection configuration
+// ============================================================
+
+// Experimentally determined stable maximum.
+// 150 was unstable, so keep some margin.
+constexpr int DEFLECTION_LIMIT = 140;
+
+// Horizontal scan range.
+constexpr int MIN_POSITION = -150;
+constexpr int MAX_POSITION = 150;
+
+// Number of visible/blank sections.
+constexpr int DASH_COUNT = 10;
+
+// 0 = run as fast as possible.
+constexpr int STEP_DELAY_US = 0;
+
+// DRV8876 PWM
+constexpr int PWM_FREQUENCY = 100000;
+constexpr int PWM_RESOLUTION = 8;
+
+
+// ============================================================
+// Deflection control
+// ============================================================
+
+void setDeflection(int position)
 {
-    // value: -255 ... +255
+    position = constrain(
+        position,
+        -DEFLECTION_LIMIT,
+        DEFLECTION_LIMIT
+    );
 
-    if (value > 0)
+    if (position > 0)
     {
-        digitalWrite(IN2_PIN, LOW);
-        ledcWrite(IN1_PIN, value);
+        digitalWrite(DEFLECTION_DIR_PIN, LOW);
+        ledcWrite(DEFLECTION_PWM_PIN, position);
     }
-    else if (value < 0)
+    else if (position < 0)
     {
-        digitalWrite(IN2_PIN, HIGH);
-        ledcWrite(IN1_PIN, -value);
+        digitalWrite(DEFLECTION_DIR_PIN, HIGH);
+        ledcWrite(DEFLECTION_PWM_PIN, -position);
     }
     else
     {
-        ledcWrite(IN1_PIN, 0);
+        ledcWrite(DEFLECTION_PWM_PIN, 0);
     }
 }
 
+
+// ============================================================
+// Beam control
+// ============================================================
+
+void beamOn()
+{
+    digitalWrite(BEAM_ALPHA_PIN, HIGH);
+}
+
+void beamOff()
+{
+    digitalWrite(BEAM_ALPHA_PIN, LOW);
+}
+
+
+// ============================================================
+// Setup
+// ============================================================
+
 void setup()
 {
-    pinMode(IN1_PIN, OUTPUT);
-    pinMode(IN2_PIN, OUTPUT);
-    pinMode(NSLEEP_PIN, OUTPUT);
-    pinMode(NFAULT_PIN, INPUT_PULLUP);
+    pinMode(DEFLECTION_PWM_PIN, OUTPUT);
+    pinMode(DEFLECTION_DIR_PIN, OUTPUT);
+    pinMode(DRIVER_SLEEP_PIN, OUTPUT);
+    pinMode(DRIVER_FAULT_PIN, INPUT_PULLUP);
 
-    digitalWrite(NSLEEP_PIN, LOW);
-    digitalWrite(IN1_PIN, LOW);
-    digitalWrite(IN2_PIN, LOW);
+    pinMode(BEAM_ALPHA_PIN, OUTPUT);
+
+    // Keep driver asleep while configuring it.
+    digitalWrite(DRIVER_SLEEP_PIN, LOW);
+
+    setDeflection(0);
+    beamOff();
 
     Serial.begin(115200);
 
     delay(500);
 
-    digitalWrite(NSLEEP_PIN, HIGH);
+    // Wake driver.
+    digitalWrite(DRIVER_SLEEP_PIN, HIGH);
     delay(100);
 
-    ledcAttach(IN1_PIN, PWM_FREQ, PWM_BITS);
+    ledcAttach(
+        DEFLECTION_PWM_PIN,
+        PWM_FREQUENCY,
+        PWM_RESOLUTION
+    );
 
-    Serial.print("nFAULT = ");
-    Serial.println(digitalRead(NFAULT_PIN));
+    Serial.print("DRV8876 nFAULT = ");
+    Serial.println(digitalRead(DRIVER_FAULT_PIN));
 }
+
+
+// ============================================================
+// Drawing
+// ============================================================
+
+void drawDashes()
+{
+    for (int position = MIN_POSITION;
+         position <= MAX_POSITION;
+         ++position)
+    {
+        const int dash =
+            ((position - MIN_POSITION) * DASH_COUNT) /
+            (MAX_POSITION - MIN_POSITION + 1);
+
+        if ((dash & 1) == 0)
+            beamOn();
+        else
+            beamOff();
+
+        setDeflection(position);
+
+        delayMicroseconds(STEP_DELAY_US);
+    }
+}
+
+
+// ============================================================
+// Main loop
+// ============================================================
 
 void loop()
 {
-    // -255 → +255
-    for (int current = -150; current <= 150; current++)
-    {
-        setCurrent(current);
-        delay(STEP_DELAY_MS);
-    }
+    // Draw left → right.
+    drawDashes();
 
-    // +255 → -255
-    for (int current = 150; current >= -150; current--)
+    // Blank during retrace.
+    beamOff();
+
+    // Return right → left.
+    for (int position = MAX_POSITION;
+         position >= MIN_POSITION;
+         --position)
     {
-        setCurrent(current);
-        delay(STEP_DELAY_MS);
+        setDeflection(position);
+        delayMicroseconds(STEP_DELAY_US);
     }
 }
