@@ -8,21 +8,28 @@ constexpr int NFAULT_PIN = 18;
 constexpr int PWM_FREQ = 100000;
 constexpr int PWM_BITS = 8;
 
-void setPositive(uint8_t duty)
-{
-    digitalWrite(IN2_PIN, LOW);
-    ledcWrite(IN1_PIN, duty);
-}
+// Time between amplitude updates.
+// Increase this if you want slower motion.
+constexpr int STEP_DELAY_MS = 0;
 
-void setNegative(uint8_t duty)
+void setCurrent(int value)
 {
-    digitalWrite(IN2_PIN, HIGH);
-    ledcWrite(IN1_PIN, duty);
-}
+    // value: -255 ... +255
 
-void off()
-{
-    ledcWrite(IN1_PIN, 0);
+    if (value > 0)
+    {
+        digitalWrite(IN2_PIN, LOW);
+        ledcWrite(IN1_PIN, value);
+    }
+    else if (value < 0)
+    {
+        digitalWrite(IN2_PIN, HIGH);
+        ledcWrite(IN1_PIN, -value);
+    }
+    else
+    {
+        ledcWrite(IN1_PIN, 0);
+    }
 }
 
 void setup()
@@ -51,29 +58,17 @@ void setup()
 
 void loop()
 {
-    // Positive direction
-    for (int duty = 0; duty <= 255; duty += 25)
+    // -255 → +255
+    for (int current = -150; current <= 150; current++)
     {
-        Serial.print("Positive duty = ");
-        Serial.println(duty);
-
-        setPositive(duty);
-        delay(1000);
+        setCurrent(current);
+        delay(STEP_DELAY_MS);
     }
 
-    off();
-    delay(1000);
-
-    // Negative direction
-    for (int duty = 0; duty <= 255; duty += 25)
+    // +255 → -255
+    for (int current = 150; current >= -150; current--)
     {
-        Serial.print("Negative duty = ");
-        Serial.println(duty);
-
-        setNegative(duty);
-        delay(1000);
+        setCurrent(current);
+        delay(STEP_DELAY_MS);
     }
-
-    off();
-    delay(2000);
 }
