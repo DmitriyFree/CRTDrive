@@ -1,38 +1,22 @@
 #include <Arduino.h>
 
-// DRV8876 pins
-constexpr int IN1_PIN    = 18;  // PWM / EN
-constexpr int IN2_PIN    = 19;  // PH / direction
-constexpr int NSLEEP_PIN = 17;
+constexpr int IN1_PIN    = 16;   // EN / PWM
+constexpr int IN2_PIN    = 17;   // PH / direction
+constexpr int NSLEEP_PIN = 5;
+constexpr int NFAULT_PIN = 18;
 
-constexpr int NFAULT_PIN = 16; // optional
-constexpr int CS_PIN     = 34; // optional ADC input
-
-constexpr int PWM_FREQUENCY = 100000;
-constexpr int PWM_RESOLUTION = 8;
-
-constexpr int STEP_DELAY_MS = 10;
-
-
-// ------------------------------------------------------------
-// Coil control
-// ------------------------------------------------------------
+constexpr int PWM_FREQ = 100000;
+constexpr int PWM_BITS = 8;
 
 void setPositive(uint8_t duty)
 {
-    // PH = 1
-    digitalWrite(IN2_PIN, HIGH);
-
-    // EN = PWM
+    digitalWrite(IN2_PIN, LOW);
     ledcWrite(IN1_PIN, duty);
 }
 
 void setNegative(uint8_t duty)
 {
-    // PH = 0
-    digitalWrite(IN2_PIN, LOW);
-
-    // EN = PWM
+    digitalWrite(IN2_PIN, HIGH);
     ledcWrite(IN1_PIN, duty);
 }
 
@@ -41,39 +25,55 @@ void off()
     ledcWrite(IN1_PIN, 0);
 }
 
-
-// ------------------------------------------------------------
-// Setup
-// ------------------------------------------------------------
-
 void setup()
 {
-    pinMode(NSLEEP_PIN, OUTPUT);
+    pinMode(IN1_PIN, OUTPUT);
     pinMode(IN2_PIN, OUTPUT);
-
+    pinMode(NSLEEP_PIN, OUTPUT);
     pinMode(NFAULT_PIN, INPUT_PULLUP);
 
+    digitalWrite(NSLEEP_PIN, LOW);
+    digitalWrite(IN1_PIN, LOW);
+    digitalWrite(IN2_PIN, LOW);
+
+    Serial.begin(115200);
+
+    delay(500);
+
     digitalWrite(NSLEEP_PIN, HIGH);
+    delay(100);
 
-    // IN1 is the PWM input
-    ledcAttach(IN1_PIN, PWM_FREQUENCY, PWM_RESOLUTION);
+    ledcAttach(IN1_PIN, PWM_FREQ, PWM_BITS);
 
-    off();
+    Serial.print("nFAULT = ");
+    Serial.println(digitalRead(NFAULT_PIN));
 }
-
-
-// ------------------------------------------------------------
-// Test
-// ------------------------------------------------------------
 
 void loop()
 {
-    setPositive(50);
-    delay(STEP_DELAY_MS);
+    // Positive direction
+    for (int duty = 0; duty <= 255; duty += 25)
+    {
+        Serial.print("Positive duty = ");
+        Serial.println(duty);
 
-    setNegative(50);
-    delay(STEP_DELAY_MS);
+        setPositive(duty);
+        delay(1000);
+    }
 
     off();
-    delay(STEP_DELAY_MS);
+    delay(1000);
+
+    // Negative direction
+    for (int duty = 0; duty <= 255; duty += 25)
+    {
+        Serial.print("Negative duty = ");
+        Serial.println(duty);
+
+        setNegative(duty);
+        delay(1000);
+    }
+
+    off();
+    delay(2000);
 }
