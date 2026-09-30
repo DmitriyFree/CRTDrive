@@ -29,6 +29,8 @@ constexpr int DRIVER_SLEEP_PIN = 5;
 // Beam intensity / blanking
 constexpr int BEAM_ALPHA_PIN = 15;
 
+constexpr int POINT_DELAY_US = 3;
+
 
 // ============================================================
 // Configuration
@@ -50,14 +52,6 @@ constexpr int FILL_STEP = 3;
 // DRV8876 PWM
 constexpr int PWM_FREQUENCY = 100000;
 constexpr int PWM_RESOLUTION = 8;
-
-
-// ============================================================
-// Remember direction through zero
-// ============================================================
-
-int lastXDirection = 1;
-int lastYDirection = 1;
 
 // ============================================================
 // Fast LEDC
@@ -84,8 +78,11 @@ inline void fastPwmY(int duty)
 // ============================================================
 int currentXDirection = 1;
 int currentYDirection = 1;
-
-inline void setXFast(int x)
+inline void waitPoint()
+{
+    delayMicroseconds(POINT_DELAY_US);
+}
+inline void setX(int x)
 {
     if (x > 0)
     {
@@ -113,7 +110,7 @@ inline void setXFast(int x)
     }
 }
 
-inline void setYFast(int y)
+inline void setY(int y)
 {
     y = -y;
 
@@ -142,103 +139,12 @@ inline void setYFast(int y)
         fastPwmY(1);
     }
 }
-void setX(int position)
-{
-    if (position > 0)
-    {
-        lastXDirection = 1;
-
-        fastWrite(X_DIR_PIN, LOW);
-        ledcWrite(X_PWM_PIN, position);
-    }
-    else if (position < 0)
-    {
-        lastXDirection = -1;
-
-        fastWrite(X_DIR_PIN, HIGH);
-        ledcWrite(X_PWM_PIN, -position);
-    }
-    else
-    {
-        fastWrite(
-            X_DIR_PIN,
-            lastXDirection > 0 ? LOW : HIGH
-        );
-
-        ledcWrite(X_PWM_PIN, 1);
-    }
-}
-
-void setY(int position)
-{
-    position = -position;
-
-    if (position > 0)
-    {
-        lastYDirection = 1;
-
-        fastWrite(Y_DIR_PIN, LOW);
-        ledcWrite(Y_PWM_PIN, position);
-    }
-    else if (position < 0)
-    {
-        lastYDirection = -1;
-
-        fastWrite(Y_DIR_PIN, HIGH);
-        ledcWrite(Y_PWM_PIN, -position);
-    }
-    else
-    {
-        fastWrite(
-            Y_DIR_PIN,
-            lastYDirection > 0 ? LOW : HIGH
-        );
-
-        ledcWrite(Y_PWM_PIN, 1);
-    }
-}
 inline void setPoint(int x, int y)
 {
-    // --------------------------------------------------------
-    // X
-    // --------------------------------------------------------
+    setX(x);
+    setY(y);
 
-    if (x > 0)
-    {
-        fastWrite(X_DIR_PIN, LOW);
-        fastPwmX(x);
-    }
-    else if (x < 0)
-    {
-        fastWrite(X_DIR_PIN, HIGH);
-        fastPwmX(-x);
-    }
-    else
-    {
-        fastPwmX(1);
-    }
-
-
-    // --------------------------------------------------------
-    // Y
-    // --------------------------------------------------------
-
-    y = -y;
-
-    if (y > 0)
-    {
-        fastWrite(Y_DIR_PIN, LOW);
-        fastPwmY(y);
-    }
-    else if (y < 0)
-    {
-        fastWrite(Y_DIR_PIN, HIGH);
-        fastPwmY(-y);
-    }
-    else
-    {
-        fastPwmY(1);
-    }
+    delayMicroseconds(POINT_DELAY_US);
 }
 
 // ============================================================
@@ -283,25 +189,33 @@ void drawLine(
 )
 {
     const int dx = abs(x2 - x1);
-    const int dy = abs(y2 - y1);
+    const int sx = x1 < x2 ? 1 : -1;
 
-    const int steps = max(dx, dy);
+    const int dy = -abs(y2 - y1);
+    const int sy = y1 < y2 ? 1 : -1;
 
-    if (steps == 0)
+    int error = dx + dy;
+
+    while (true)
     {
         setPoint(x1, y1);
-        return;
-    }
 
-    for (int i = 0; i <= steps; ++i)
-    {
-        const int x =
-            x1 + ((x2 - x1) * i) / steps;
+        if (x1 == x2 && y1 == y2)
+            break;
 
-        const int y =
-            y1 + ((y2 - y1) * i) / steps;
+        const int e2 = 2 * error;
 
-        setPoint(x, y);
+        if (e2 >= dy)
+        {
+            error += dy;
+            x1 += sx;
+        }
+
+        if (e2 <= dx)
+        {
+            error += dx;
+            y1 += sy;
+        }
     }
 }
 
@@ -381,40 +295,22 @@ void drawFilledSquare(int size)
          y <= size;
          y += FILL_STEP)
     {
-        setYFast(y);
+        setY(y);
 
         if (leftToRight)
         {
-            // X is already negative at the beginning.
-            if (currentXDirection != -1)
-            {
-                fastWrite(X_DIR_PIN, HIGH);
-                currentXDirection = -1;
-            }
-
             for (int x = -size; x <= size; ++x)
             {
-                if (x == 0)
-                    fastPwmX(1);
-                else
-                    fastPwmX(abs(x));
+                setX(x);
+                delayMicroseconds(POINT_DELAY_US);
             }
         }
         else
         {
-            // X is already positive at the beginning.
-            if (currentXDirection != 1)
-            {
-                fastWrite(X_DIR_PIN, LOW);
-                currentXDirection = 1;
-            }
-
             for (int x = size; x >= -size; --x)
             {
-                if (x == 0)
-                    fastPwmX(1);
-                else
-                    fastPwmX(abs(x));
+                setX(x);
+                delayMicroseconds(POINT_DELAY_US);
             }
         }
 
