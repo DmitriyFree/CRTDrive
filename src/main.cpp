@@ -1,4 +1,13 @@
 #include <Arduino.h>
+#include "soc/gpio_struct.h"
+
+inline void fastWrite(int pin, bool level)
+{
+    if (level)
+        GPIO.out_w1ts = (1UL << pin);
+    else
+        GPIO.out_w1tc = (1UL << pin);
+}
 
 // ============================================================
 // Hardware
@@ -26,7 +35,7 @@ constexpr int BEAM_ALPHA_PIN = 15;
 constexpr int DEFLECTION_LIMIT = 140;
 
 // Shape size
-constexpr int SHAPE_SIZE = 80;
+constexpr int SHAPE_SIZE = 100;
 
 // Keep each figure on screen for this long.
 constexpr unsigned long FIGURE_TIME_MS = 1000;
@@ -34,12 +43,21 @@ constexpr unsigned long FIGURE_TIME_MS = 1000;
 // Circle resolution
 constexpr int CIRCLE_POINTS = 120;
 
-// Filled square spacing
-constexpr int FILL_STEP = 4;
+// Filled square raster spacing.
+// Smaller = denser fill, but more work.
+constexpr int FILL_STEP = 3;
 
 // DRV8876 PWM
 constexpr int PWM_FREQUENCY = 100000;
 constexpr int PWM_RESOLUTION = 8;
+
+
+// ============================================================
+// Remember direction through zero
+// ============================================================
+
+int lastXDirection = 1;
+int lastYDirection = 1;
 
 
 // ============================================================
@@ -56,24 +74,31 @@ void setX(int position)
 
     if (position > 0)
     {
-        digitalWrite(X_DIR_PIN, LOW);
+        lastXDirection = 1;
+
+        fastWrite(X_DIR_PIN, LOW);
         ledcWrite(X_PWM_PIN, position);
     }
     else if (position < 0)
     {
-        digitalWrite(X_DIR_PIN, HIGH);
+        lastXDirection = -1;
+
+        fastWrite(X_DIR_PIN, HIGH);
         ledcWrite(X_PWM_PIN, -position);
     }
     else
     {
-        ledcWrite(X_PWM_PIN, 0);
+        fastWrite(
+            X_DIR_PIN,
+            lastXDirection > 0 ? LOW : HIGH
+        );
+
+        ledcWrite(X_PWM_PIN, 1);
     }
 }
 
-
 void setY(int position)
 {
-    // Y axis is physically inverted.
     position = -position;
 
     position = constrain(
@@ -84,26 +109,68 @@ void setY(int position)
 
     if (position > 0)
     {
-        digitalWrite(Y_DIR_PIN, LOW);
+        lastYDirection = 1;
+
+        fastWrite(Y_DIR_PIN, LOW);
         ledcWrite(Y_PWM_PIN, position);
     }
     else if (position < 0)
     {
-        digitalWrite(Y_DIR_PIN, HIGH);
+        lastYDirection = -1;
+
+        fastWrite(Y_DIR_PIN, HIGH);
         ledcWrite(Y_PWM_PIN, -position);
     }
     else
     {
-        ledcWrite(Y_PWM_PIN, 0);
+        fastWrite(
+            Y_DIR_PIN,
+            lastYDirection > 0 ? LOW : HIGH
+        );
+
+        ledcWrite(Y_PWM_PIN, 1);
     }
 }
+inline void setPoint(int x, int y)
+{
+    if (x > 0)
+    {
+        fastWrite(X_DIR_PIN, LOW);
+        ledcWrite(X_PWM_PIN, x);
+    }
+    else if (x < 0)
+    {
+        fastWrite(X_DIR_PIN, HIGH);
+        ledcWrite(X_PWM_PIN, -x);
+    }
+    else
+    {
+        ledcWrite(X_PWM_PIN, 1);
+    }
 
+    y = -y;
+
+    if (y > 0)
+    {
+        fastWrite(Y_DIR_PIN, LOW);
+        ledcWrite(Y_PWM_PIN, y);
+    }
+    else if (y < 0)
+    {
+        fastWrite(Y_DIR_PIN, HIGH);
+        ledcWrite(Y_PWM_PIN, -y);
+    }
+    else
+    {
+        ledcWrite(Y_PWM_PIN, 1);
+    }
+}
 
 // ============================================================
 // Beam control
 // ============================================================
 
-// Alpha intentionally ignored for now.
+// Alpha intentionally ignored.
 // Beam remains ON continuously.
 
 void beamOn()
@@ -122,24 +189,15 @@ void beamOff()
 
 void stopDeflection()
 {
-    setX(0);
-    setY(0);
+    // For an actual stop, unlike a drawing zero-crossing,
+    // we really want zero current.
+
+    ledcWrite(X_PWM_PIN, 0);
+    ledcWrite(Y_PWM_PIN, 0);
 }
 
-
 // ============================================================
-// Move to a point
-// ============================================================
-
-void moveTo(int x, int y)
-{
-    setX(x);
-    setY(y);
-}
-
-
-// ============================================================
-// Draw a line
+// Fast integer line drawing
 // ============================================================
 
 void drawLine(
@@ -156,27 +214,19 @@ void drawLine(
 
     if (steps == 0)
     {
-        moveTo(x1, y1);
+        setPoint(x1, y1);
         return;
     }
 
     for (int i = 0; i <= steps; ++i)
     {
-        const float t =
-            static_cast<float>(i) /
-            static_cast<float>(steps);
-
         const int x =
-            x1 + static_cast<int>(
-                (x2 - x1) * t
-            );
+            x1 + ((x2 - x1) * i) / steps;
 
         const int y =
-            y1 + static_cast<int>(
-                (y2 - y1) * t
-            );
+            y1 + ((y2 - y1) * i) / steps;
 
-        moveTo(x, y);
+        setPoint(x, y);
     }
 }
 
@@ -200,25 +250,19 @@ void drawSquare(int size)
 
 void drawTriangle(int size)
 {
-    const int topY = size;
-    const int bottomY = -size;
-
-    const int leftX = -size;
-    const int rightX = size;
-
     drawLine(
-        leftX, bottomY,
-        rightX, bottomY
+        -size, -size,
+         size, -size
     );
 
     drawLine(
-        rightX, bottomY,
-        0, topY
+         size, -size,
+         0, size
     );
 
     drawLine(
-        0, topY,
-        leftX, bottomY
+         0, size,
+        -size, -size
     );
 }
 
@@ -237,42 +281,46 @@ void drawCircle(int radius)
 
         const int x =
             static_cast<int>(
-                radius * cos(angle)
+                radius * cosf(angle)
             );
 
         const int y =
             static_cast<int>(
-                radius * sin(angle)
+                radius * sinf(angle)
             );
 
-        moveTo(x, y);
+        setPoint(x, y);
     }
 }
 
 
 // ============================================================
-// Filled square
+// Fast filled square
 // ============================================================
 
 void drawFilledSquare(int size)
 {
     bool leftToRight = true;
 
-    for (int y = -size; y <= size; y += FILL_STEP)
+    for (int y = -size;
+         y <= size;
+         y += FILL_STEP)
     {
+        setY(y);
+
         if (leftToRight)
         {
-            drawLine(
-                -size, y,
-                 size, y
-            );
+            for (int x = -size; x <= size; ++x)
+            {
+                setX(x);
+            }
         }
         else
         {
-            drawLine(
-                 size, y,
-                -size, y
-            );
+            for (int x = size; x >= -size; --x)
+            {
+                setX(x);
+            }
         }
 
         leftToRight = !leftToRight;
@@ -299,11 +347,11 @@ void drawDiagonalCross(int size)
 {
     drawLine(
         -size, -size,
-         size,  size
+         size, size
     );
 
     drawLine(
-        -size,  size,
+        -size, size,
          size, -size
     );
 }
@@ -315,10 +363,25 @@ void drawDiagonalCross(int size)
 
 void drawDiamond(int size)
 {
-    drawLine(0, size, size, 0);
-    drawLine(size, 0, 0, -size);
-    drawLine(0, -size, -size, 0);
-    drawLine(-size, 0, 0, size);
+    drawLine(
+        0, size,
+        size, 0
+    );
+
+    drawLine(
+        size, 0,
+        0, -size
+    );
+
+    drawLine(
+        0, -size,
+        -size, 0
+    );
+
+    drawLine(
+        -size, 0,
+        0, size
+    );
 }
 
 
@@ -335,7 +398,7 @@ void drawConcentricCircles()
 
 
 // ============================================================
-// Keep drawing a figure for a fixed time
+// Timed vector figure
 // ============================================================
 
 void showFigure(
@@ -348,6 +411,40 @@ void showFigure(
     while (millis() - startTime < FIGURE_TIME_MS)
     {
         figure(size);
+    }
+
+    stopDeflection();
+}
+
+
+// ============================================================
+// Timed concentric circles
+// ============================================================
+
+void showConcentricCircles()
+{
+    const unsigned long startTime = millis();
+
+    while (millis() - startTime < FIGURE_TIME_MS)
+    {
+        drawConcentricCircles();
+    }
+
+    stopDeflection();
+}
+
+
+// ============================================================
+// Timed filled square
+// ============================================================
+
+void showFilledSquare()
+{
+    const unsigned long startTime = millis();
+
+    while (millis() - startTime < FIGURE_TIME_MS)
+    {
+        drawFilledSquare(SHAPE_SIZE);
     }
 
     stopDeflection();
@@ -369,10 +466,10 @@ void setup()
     pinMode(DRIVER_SLEEP_PIN, OUTPUT);
     pinMode(BEAM_ALPHA_PIN, OUTPUT);
 
-    // Keep drivers asleep while configuring.
+    // Keep drivers asleep during configuration.
     digitalWrite(DRIVER_SLEEP_PIN, LOW);
 
-    // Alpha is permanently enabled.
+    // Alpha permanently enabled.
     digitalWrite(BEAM_ALPHA_PIN, HIGH);
 
     ledcAttach(
@@ -408,72 +505,75 @@ void loop()
     // Square
     // --------------------------------------------------------
 
-    showFigure(drawSquare, SHAPE_SIZE);
+    showFigure(
+        drawSquare,
+        SHAPE_SIZE
+    );
 
 
     // --------------------------------------------------------
     // Triangle
     // --------------------------------------------------------
 
-    showFigure(drawTriangle, SHAPE_SIZE);
+    showFigure(
+        drawTriangle,
+        SHAPE_SIZE
+    );
 
 
     // --------------------------------------------------------
     // Circle
     // --------------------------------------------------------
 
-    showFigure(drawCircle, SHAPE_SIZE);
+    showFigure(
+        drawCircle,
+        SHAPE_SIZE
+    );
 
 
     // --------------------------------------------------------
     // Concentric circles
     // --------------------------------------------------------
 
-    const unsigned long circlesStart = millis();
-
-    while (millis() - circlesStart < FIGURE_TIME_MS)
-    {
-        drawConcentricCircles();
-    }
-
-    stopDeflection();
+    showConcentricCircles();
 
 
     // --------------------------------------------------------
     // Filled square
     // --------------------------------------------------------
 
-    const unsigned long filledStart = millis();
-
-    while (millis() - filledStart < FIGURE_TIME_MS)
-    {
-        drawFilledSquare(SHAPE_SIZE);
-    }
-
-    stopDeflection();
+    showFilledSquare();
 
 
     // --------------------------------------------------------
     // Cross
     // --------------------------------------------------------
 
-    showFigure(drawCross, SHAPE_SIZE);
+    showFigure(
+        drawCross,
+        SHAPE_SIZE
+    );
 
 
     // --------------------------------------------------------
     // Diagonal cross
     // --------------------------------------------------------
 
-    showFigure(drawDiagonalCross, SHAPE_SIZE);
+    showFigure(
+        drawDiagonalCross,
+        SHAPE_SIZE
+    );
 
 
     // --------------------------------------------------------
     // Diamond
     // --------------------------------------------------------
 
-    showFigure(drawDiamond, SHAPE_SIZE);
+    showFigure(
+        drawDiamond,
+        SHAPE_SIZE
+    );
 
 
-    // Short pause before repeating.
     delay(500);
 }
