@@ -4,30 +4,38 @@
 // Hardware
 // ============================================================
 
-constexpr int DEFLECTION_PWM_PIN = 16;  // DRV8876 EN / PWM
-constexpr int DEFLECTION_DIR_PIN = 17;  // DRV8876 PH / direction
-constexpr int DRIVER_SLEEP_PIN   = 5;
-constexpr int DRIVER_FAULT_PIN   = 18;
+// X deflection driver
+constexpr int X_PWM_PIN = 16;
+constexpr int X_DIR_PIN = 17;
 
-constexpr int BEAM_ALPHA_PIN     = 15;
+// Y deflection driver
+constexpr int Y_PWM_PIN = 18;
+constexpr int Y_DIR_PIN = 19;
+
+// Shared driver sleep
+constexpr int DRIVER_SLEEP_PIN = 5;
+
+// Beam intensity / blanking
+constexpr int BEAM_ALPHA_PIN = 15;
+
 
 // ============================================================
-// Deflection configuration
+// Conservative test configuration
 // ============================================================
 
-// Experimentally determined stable maximum.
-// 150 was unstable, so keep some margin.
+// Keep this well below the previously observed ~150 limit.
 constexpr int DEFLECTION_LIMIT = 140;
 
-// Horizontal scan range.
-constexpr int MIN_POSITION = -150;
-constexpr int MAX_POSITION = 150;
+// Small scan range.
+constexpr int MIN_POSITION = -100;
+constexpr int MAX_POSITION = 100;
 
-// Number of visible/blank sections.
-constexpr int DASH_COUNT = 10;
+// Very slow movement.
+// Increase/decrease later once everything is stable.
+constexpr int STEP_DELAY_MS = 10;
 
-// 0 = run as fast as possible.
-constexpr int STEP_DELAY_US = 0;
+// Pause after each test.
+constexpr int TEST_PAUSE_MS = 1000;
 
 // DRV8876 PWM
 constexpr int PWM_FREQUENCY = 100000;
@@ -35,10 +43,10 @@ constexpr int PWM_RESOLUTION = 8;
 
 
 // ============================================================
-// Deflection control
+// Axis control
 // ============================================================
 
-void setDeflection(int position)
+void setX(int position)
 {
     position = constrain(
         position,
@@ -48,17 +56,42 @@ void setDeflection(int position)
 
     if (position > 0)
     {
-        digitalWrite(DEFLECTION_DIR_PIN, LOW);
-        ledcWrite(DEFLECTION_PWM_PIN, position);
+        digitalWrite(X_DIR_PIN, LOW);
+        ledcWrite(X_PWM_PIN, position);
     }
     else if (position < 0)
     {
-        digitalWrite(DEFLECTION_DIR_PIN, HIGH);
-        ledcWrite(DEFLECTION_PWM_PIN, -position);
+        digitalWrite(X_DIR_PIN, HIGH);
+        ledcWrite(X_PWM_PIN, -position);
     }
     else
     {
-        ledcWrite(DEFLECTION_PWM_PIN, 0);
+        ledcWrite(X_PWM_PIN, 0);
+    }
+}
+
+
+void setY(int position)
+{
+    position = constrain(
+        position,
+        -DEFLECTION_LIMIT,
+        DEFLECTION_LIMIT
+    );
+
+    if (position > 0)
+    {
+        digitalWrite(Y_DIR_PIN, LOW);
+        ledcWrite(Y_PWM_PIN, position);
+    }
+    else if (position < 0)
+    {
+        digitalWrite(Y_DIR_PIN, HIGH);
+        ledcWrite(Y_PWM_PIN, -position);
+    }
+    else
+    {
+        ledcWrite(Y_PWM_PIN, 0);
     }
 }
 
@@ -69,76 +102,188 @@ void setDeflection(int position)
 
 void beamOn()
 {
-    digitalWrite(BEAM_ALPHA_PIN, HIGH);
+    //digitalWrite(BEAM_ALPHA_PIN, HIGH);
 }
+
 
 void beamOff()
 {
-    digitalWrite(BEAM_ALPHA_PIN, LOW);
+    //digitalWrite(BEAM_ALPHA_PIN, LOW);
 }
 
 
 // ============================================================
-// Setup
+// Stop both coils
+// ============================================================
+
+void stopDeflection()
+{
+    setX(0);
+    setY(0);
+}
+
+
+// ============================================================
+// Initialization
 // ============================================================
 
 void setup()
 {
-    pinMode(DEFLECTION_PWM_PIN, OUTPUT);
-    pinMode(DEFLECTION_DIR_PIN, OUTPUT);
-    pinMode(DRIVER_SLEEP_PIN, OUTPUT);
-    pinMode(DRIVER_FAULT_PIN, INPUT_PULLUP);
+    pinMode(X_PWM_PIN, OUTPUT);
+    pinMode(X_DIR_PIN, OUTPUT);
 
+    pinMode(Y_PWM_PIN, OUTPUT);
+    pinMode(Y_DIR_PIN, OUTPUT);
+
+    pinMode(DRIVER_SLEEP_PIN, OUTPUT);
     pinMode(BEAM_ALPHA_PIN, OUTPUT);
 
-    // Keep driver asleep while configuring it.
+    // Keep drivers asleep while configuring.
     digitalWrite(DRIVER_SLEEP_PIN, LOW);
 
-    setDeflection(0);
-    beamOff();
-
-    Serial.begin(115200);
-
-    delay(500);
-
-    // Wake driver.
-    digitalWrite(DRIVER_SLEEP_PIN, HIGH);
-    delay(100);
+    digitalWrite(BEAM_ALPHA_PIN, HIGH);
+    //beamOff();
 
     ledcAttach(
-        DEFLECTION_PWM_PIN,
+        X_PWM_PIN,
         PWM_FREQUENCY,
         PWM_RESOLUTION
     );
 
-    Serial.print("DRV8876 nFAULT = ");
-    Serial.println(digitalRead(DRIVER_FAULT_PIN));
+    ledcAttach(
+        Y_PWM_PIN,
+        PWM_FREQUENCY,
+        PWM_RESOLUTION
+    );
+
+    stopDeflection();
+
+    delay(1000);
+
+    // Wake both drivers.
+    digitalWrite(DRIVER_SLEEP_PIN, HIGH);
+
+    delay(500);
 }
 
 
 // ============================================================
-// Drawing
+// X-axis test
 // ============================================================
 
-void drawDashes()
+void testX()
 {
-    for (int position = MIN_POSITION;
-         position <= MAX_POSITION;
-         ++position)
+    // Make absolutely sure Y is inactive.
+    setY(0);
+
+    // Move X slowly from center to one side.
+    beamOn();
+
+    for (int x = 0; x <= MAX_POSITION; ++x)
     {
-        const int dash =
-            ((position - MIN_POSITION) * DASH_COUNT) /
-            (MAX_POSITION - MIN_POSITION + 1);
-
-        if ((dash & 1) == 0)
-            beamOn();
-        else
-            beamOff();
-
-        setDeflection(position);
-
-        delayMicroseconds(STEP_DELAY_US);
+        setX(x);
+        delay(STEP_DELAY_MS);
     }
+
+    delay(TEST_PAUSE_MS);
+
+    // Return with beam OFF.
+    beamOff();
+
+    for (int x = MAX_POSITION; x >= 0; --x)
+    {
+        setX(x);
+        delay(STEP_DELAY_MS);
+    }
+
+    setX(0);
+
+    delay(TEST_PAUSE_MS);
+
+
+    // Move X to the other side.
+    beamOn();
+
+    for (int x = 0; x >= MIN_POSITION; --x)
+    {
+        setX(x);
+        delay(STEP_DELAY_MS);
+    }
+
+    delay(TEST_PAUSE_MS);
+
+    // Return with beam OFF.
+    beamOff();
+
+    for (int x = MIN_POSITION; x <= 0; ++x)
+    {
+        setX(x);
+        delay(STEP_DELAY_MS);
+    }
+
+    setX(0);
+
+    delay(TEST_PAUSE_MS);
+}
+
+
+// ============================================================
+// Y-axis test
+// ============================================================
+
+void testY()
+{
+    // Make absolutely sure X is inactive.
+    setX(0);
+
+    // Move Y slowly from center to one side.
+    beamOn();
+
+    for (int y = 0; y <= MAX_POSITION; ++y)
+    {
+        setY(y);
+        delay(STEP_DELAY_MS);
+    }
+
+    delay(TEST_PAUSE_MS);
+
+    // Return with beam OFF.
+    beamOff();
+
+    for (int y = MAX_POSITION; y >= 0; --y)
+    {
+        setY(y);
+        delay(STEP_DELAY_MS);
+    }
+
+    setY(0);
+
+    delay(TEST_PAUSE_MS);
+
+
+    // Move Y to the other side.
+    beamOn();
+
+    for (int y = 0; y >= MIN_POSITION; --y)
+    {
+        setY(y);
+        delay(STEP_DELAY_MS);
+    }
+
+    delay(TEST_PAUSE_MS);
+
+    // Return with beam OFF.
+    beamOff();
+
+    for (int y = MIN_POSITION; y <= 0; ++y)
+    {
+        setY(y);
+        delay(STEP_DELAY_MS);
+    }
+
+    setY(0);
+
+    delay(TEST_PAUSE_MS);
 }
 
 
@@ -148,18 +293,28 @@ void drawDashes()
 
 void loop()
 {
-    // Draw left → right.
-    drawDashes();
+    // --------------------------------------------------------
+    // X axis only
+    // --------------------------------------------------------
 
-    // Blank during retrace.
+    testX();
+
+    // Everything off for a while.
     beamOff();
+    stopDeflection();
 
-    // Return right → left.
-    for (int position = MAX_POSITION;
-         position >= MIN_POSITION;
-         --position)
-    {
-        setDeflection(position);
-        delayMicroseconds(STEP_DELAY_US);
-    }
+    delay(2000);
+
+
+    // --------------------------------------------------------
+    // Y axis only
+    // --------------------------------------------------------
+
+    testY();
+
+    // Everything off for a while.
+    beamOff();
+    stopDeflection();
+
+    delay(3000);
 }
