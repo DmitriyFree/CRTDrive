@@ -1,5 +1,7 @@
 #include <Arduino.h>
 #include "soc/gpio_struct.h"
+#include "soc/ledc_reg.h"
+#include "soc/ledc_struct.h"
 
 inline void fastWrite(int pin, bool level)
 {
@@ -32,8 +34,6 @@ constexpr int BEAM_ALPHA_PIN = 15;
 // Configuration
 // ============================================================
 
-constexpr int DEFLECTION_LIMIT = 140;
-
 // Shape size
 constexpr int SHAPE_SIZE = 100;
 
@@ -59,19 +59,91 @@ constexpr int PWM_RESOLUTION = 8;
 int lastXDirection = 1;
 int lastYDirection = 1;
 
+// ============================================================
+// Fast LEDC
+// ============================================================
+
+inline void fastPwmX(int duty)
+{
+    LEDC.channel_group[0].channel[0].duty.duty =
+        ((uint32_t)duty << 4);
+
+    LEDC.channel_group[0].channel[0].conf1.duty_start = 1;
+}
+
+inline void fastPwmY(int duty)
+{
+    LEDC.channel_group[0].channel[1].duty.duty =
+        ((uint32_t)duty << 4);
+
+    LEDC.channel_group[0].channel[1].conf1.duty_start = 1;
+}
 
 // ============================================================
 // Axis control
 // ============================================================
+int currentXDirection = 1;
+int currentYDirection = 1;
 
+inline void setXFast(int x)
+{
+    if (x > 0)
+    {
+        if (currentXDirection != 1)
+        {
+            fastWrite(X_DIR_PIN, LOW);
+            currentXDirection = 1;
+        }
+
+        fastPwmX(x);
+    }
+    else if (x < 0)
+    {
+        if (currentXDirection != -1)
+        {
+            fastWrite(X_DIR_PIN, HIGH);
+            currentXDirection = -1;
+        }
+
+        fastPwmX(-x);
+    }
+    else
+    {
+        fastPwmX(1);
+    }
+}
+
+inline void setYFast(int y)
+{
+    y = -y;
+
+    if (y > 0)
+    {
+        if (currentYDirection != 1)
+        {
+            fastWrite(Y_DIR_PIN, LOW);
+            currentYDirection = 1;
+        }
+
+        fastPwmY(y);
+    }
+    else if (y < 0)
+    {
+        if (currentYDirection != -1)
+        {
+            fastWrite(Y_DIR_PIN, HIGH);
+            currentYDirection = -1;
+        }
+
+        fastPwmY(-y);
+    }
+    else
+    {
+        fastPwmY(1);
+    }
+}
 void setX(int position)
 {
-    position = constrain(
-        position,
-        -DEFLECTION_LIMIT,
-        DEFLECTION_LIMIT
-    );
-
     if (position > 0)
     {
         lastXDirection = 1;
@@ -101,12 +173,6 @@ void setY(int position)
 {
     position = -position;
 
-    position = constrain(
-        position,
-        -DEFLECTION_LIMIT,
-        DEFLECTION_LIMIT
-    );
-
     if (position > 0)
     {
         lastYDirection = 1;
@@ -133,36 +199,45 @@ void setY(int position)
 }
 inline void setPoint(int x, int y)
 {
+    // --------------------------------------------------------
+    // X
+    // --------------------------------------------------------
+
     if (x > 0)
     {
         fastWrite(X_DIR_PIN, LOW);
-        ledcWrite(X_PWM_PIN, x);
+        fastPwmX(x);
     }
     else if (x < 0)
     {
         fastWrite(X_DIR_PIN, HIGH);
-        ledcWrite(X_PWM_PIN, -x);
+        fastPwmX(-x);
     }
     else
     {
-        ledcWrite(X_PWM_PIN, 1);
+        fastPwmX(1);
     }
+
+
+    // --------------------------------------------------------
+    // Y
+    // --------------------------------------------------------
 
     y = -y;
 
     if (y > 0)
     {
         fastWrite(Y_DIR_PIN, LOW);
-        ledcWrite(Y_PWM_PIN, y);
+        fastPwmY(y);
     }
     else if (y < 0)
     {
         fastWrite(Y_DIR_PIN, HIGH);
-        ledcWrite(Y_PWM_PIN, -y);
+        fastPwmY(-y);
     }
     else
     {
-        ledcWrite(Y_PWM_PIN, 1);
+        fastPwmY(1);
     }
 }
 
@@ -306,20 +381,40 @@ void drawFilledSquare(int size)
          y <= size;
          y += FILL_STEP)
     {
-        setY(y);
+        setYFast(y);
 
         if (leftToRight)
         {
+            // X is already negative at the beginning.
+            if (currentXDirection != -1)
+            {
+                fastWrite(X_DIR_PIN, HIGH);
+                currentXDirection = -1;
+            }
+
             for (int x = -size; x <= size; ++x)
             {
-                setX(x);
+                if (x == 0)
+                    fastPwmX(1);
+                else
+                    fastPwmX(abs(x));
             }
         }
         else
         {
+            // X is already positive at the beginning.
+            if (currentXDirection != 1)
+            {
+                fastWrite(X_DIR_PIN, LOW);
+                currentXDirection = 1;
+            }
+
             for (int x = size; x >= -size; --x)
             {
-                setX(x);
+                if (x == 0)
+                    fastPwmX(1);
+                else
+                    fastPwmX(abs(x));
             }
         }
 
