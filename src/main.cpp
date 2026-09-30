@@ -20,22 +20,28 @@ constexpr int BEAM_ALPHA_PIN = 15;
 
 
 // ============================================================
-// Conservative test configuration
+// Configuration
 // ============================================================
 
-// Keep this well below the previously observed ~150 limit.
+// Absolute hardware limit.
+// Previously observed stable maximum was about 140.
 constexpr int DEFLECTION_LIMIT = 140;
 
-// Small scan range.
-constexpr int MIN_POSITION = -100;
-constexpr int MAX_POSITION = 100;
+// Shape size.
+// Keep this below the full driver range for now.
+constexpr int SHAPE_SIZE = 80;
 
-// Very slow movement.
-// Increase/decrease later once everything is stable.
-constexpr int STEP_DELAY_MS = 10;
+// Time between individual points.
+constexpr int STEP_DELAY_MS = 0;
 
-// Pause after each test.
-constexpr int TEST_PAUSE_MS = 1000;
+// Pause after each shape.
+constexpr int TEST_PAUSE_MS = 0;
+
+// Number of points used for circles.
+constexpr int CIRCLE_POINTS = 120;
+
+// Number of horizontal lines in filled square.
+constexpr int FILL_STEP = 4;
 
 // DRV8876 PWM
 constexpr int PWM_FREQUENCY = 100000;
@@ -100,15 +106,18 @@ void setY(int position)
 // Beam control
 // ============================================================
 
+// Alpha is intentionally NOT used for now.
+// Beam stays on continuously.
+
 void beamOn()
 {
-    //digitalWrite(BEAM_ALPHA_PIN, HIGH);
+    // Intentionally empty.
 }
 
 
 void beamOff()
 {
-    //digitalWrite(BEAM_ALPHA_PIN, LOW);
+    // Intentionally empty.
 }
 
 
@@ -124,7 +133,254 @@ void stopDeflection()
 
 
 // ============================================================
-// Initialization
+// Move to a 2D point
+// ============================================================
+
+void moveTo(int x, int y)
+{
+    setX(x);
+    setY(y);
+
+    delay(STEP_DELAY_MS);
+}
+
+
+// ============================================================
+// Draw a line
+// ============================================================
+
+void drawLine(
+    int x1,
+    int y1,
+    int x2,
+    int y2
+)
+{
+    const int dx = abs(x2 - x1);
+    const int dy = abs(y2 - y1);
+
+    const int steps = max(dx, dy);
+
+    if (steps == 0)
+    {
+        moveTo(x1, y1);
+        return;
+    }
+
+    for (int i = 0; i <= steps; ++i)
+    {
+        const float t =
+            static_cast<float>(i) /
+            static_cast<float>(steps);
+
+        const int x =
+            x1 + static_cast<int>(
+                (x2 - x1) * t
+            );
+
+        const int y =
+            y1 + static_cast<int>(
+                (y2 - y1) * t
+            );
+
+        moveTo(x, y);
+    }
+}
+
+
+// ============================================================
+// Square
+// ============================================================
+
+void drawSquare(int size)
+{
+    drawLine(
+        -size, -size,
+         size, -size
+    );
+
+    drawLine(
+         size, -size,
+         size,  size
+    );
+
+    drawLine(
+         size,  size,
+        -size,  size
+    );
+
+    drawLine(
+        -size,  size,
+        -size, -size
+    );
+}
+
+
+// ============================================================
+// Triangle
+// ============================================================
+
+void drawTriangle(int size)
+{
+    // Equilateral-ish triangle.
+    const int topY = size;
+    const int bottomY = -size;
+
+    const int leftX = -size;
+    const int rightX = size;
+
+    drawLine(
+        leftX, bottomY,
+        rightX, bottomY
+    );
+
+    drawLine(
+        rightX, bottomY,
+        0, topY
+    );
+
+    drawLine(
+        0, topY,
+        leftX, bottomY
+    );
+}
+
+
+// ============================================================
+// Circle
+// ============================================================
+
+void drawCircle(int radius)
+{
+    for (int i = 0; i <= CIRCLE_POINTS; ++i)
+    {
+        const float angle =
+            (2.0f * PI * i) /
+            CIRCLE_POINTS;
+
+        const int x =
+            static_cast<int>(
+                radius * cos(angle)
+            );
+
+        const int y =
+            static_cast<int>(
+                radius * sin(angle)
+            );
+
+        moveTo(x, y);
+    }
+}
+
+
+// ============================================================
+// Filled square
+// ============================================================
+
+void drawFilledSquare(int size)
+{
+    bool leftToRight = true;
+
+    for (int y = -size; y <= size; y += FILL_STEP)
+    {
+        if (leftToRight)
+        {
+            drawLine(
+                -size, y,
+                 size, y
+            );
+        }
+        else
+        {
+            drawLine(
+                 size, y,
+                -size, y
+            );
+        }
+
+        leftToRight = !leftToRight;
+    }
+}
+
+
+// ============================================================
+// Cross
+// ============================================================
+
+void drawCross(int size)
+{
+    drawLine(
+        -size, 0,
+         size, 0
+    );
+
+    drawLine(
+        0, -size,
+        0,  size
+    );
+}
+
+
+// ============================================================
+// Diagonal cross
+// ============================================================
+
+void drawDiagonalCross(int size)
+{
+    drawLine(
+        -size, -size,
+         size,  size
+    );
+
+    drawLine(
+        -size,  size,
+         size, -size
+    );
+}
+
+
+// ============================================================
+// Diamond
+// ============================================================
+
+void drawDiamond(int size)
+{
+    drawLine(
+        0,  size,
+        size, 0
+    );
+
+    drawLine(
+        size, 0,
+        0, -size
+    );
+
+    drawLine(
+        0, -size,
+        -size, 0
+    );
+
+    drawLine(
+        -size, 0,
+        0, size
+    );
+}
+
+
+// ============================================================
+// Concentric circles
+// ============================================================
+
+void drawConcentricCircles()
+{
+    drawCircle(25);
+    drawCircle(50);
+    drawCircle(75);
+}
+
+
+// ============================================================
+// Setup
 // ============================================================
 
 void setup()
@@ -138,11 +394,12 @@ void setup()
     pinMode(DRIVER_SLEEP_PIN, OUTPUT);
     pinMode(BEAM_ALPHA_PIN, OUTPUT);
 
-    // Keep drivers asleep while configuring.
+    // Keep drivers asleep during configuration.
     digitalWrite(DRIVER_SLEEP_PIN, LOW);
 
+    // IMPORTANT:
+    // Alpha is permanently enabled for these tests.
     digitalWrite(BEAM_ALPHA_PIN, HIGH);
-    //beamOff();
 
     ledcAttach(
         X_PWM_PIN,
@@ -168,153 +425,87 @@ void setup()
 
 
 // ============================================================
-// X-axis test
-// ============================================================
-
-void testX()
-{
-    // Make absolutely sure Y is inactive.
-    setY(0);
-
-    // Move X slowly from center to one side.
-    beamOn();
-
-    for (int x = 0; x <= MAX_POSITION; ++x)
-    {
-        setX(x);
-        delay(STEP_DELAY_MS);
-    }
-
-    delay(TEST_PAUSE_MS);
-
-    // Return with beam OFF.
-    beamOff();
-
-    for (int x = MAX_POSITION; x >= 0; --x)
-    {
-        setX(x);
-        delay(STEP_DELAY_MS);
-    }
-
-    setX(0);
-
-    delay(TEST_PAUSE_MS);
-
-
-    // Move X to the other side.
-    beamOn();
-
-    for (int x = 0; x >= MIN_POSITION; --x)
-    {
-        setX(x);
-        delay(STEP_DELAY_MS);
-    }
-
-    delay(TEST_PAUSE_MS);
-
-    // Return with beam OFF.
-    beamOff();
-
-    for (int x = MIN_POSITION; x <= 0; ++x)
-    {
-        setX(x);
-        delay(STEP_DELAY_MS);
-    }
-
-    setX(0);
-
-    delay(TEST_PAUSE_MS);
-}
-
-
-// ============================================================
-// Y-axis test
-// ============================================================
-
-void testY()
-{
-    // Make absolutely sure X is inactive.
-    setX(0);
-
-    // Move Y slowly from center to one side.
-    beamOn();
-
-    for (int y = 0; y <= MAX_POSITION; ++y)
-    {
-        setY(y);
-        delay(STEP_DELAY_MS);
-    }
-
-    delay(TEST_PAUSE_MS);
-
-    // Return with beam OFF.
-    beamOff();
-
-    for (int y = MAX_POSITION; y >= 0; --y)
-    {
-        setY(y);
-        delay(STEP_DELAY_MS);
-    }
-
-    setY(0);
-
-    delay(TEST_PAUSE_MS);
-
-
-    // Move Y to the other side.
-    beamOn();
-
-    for (int y = 0; y >= MIN_POSITION; --y)
-    {
-        setY(y);
-        delay(STEP_DELAY_MS);
-    }
-
-    delay(TEST_PAUSE_MS);
-
-    // Return with beam OFF.
-    beamOff();
-
-    for (int y = MIN_POSITION; y <= 0; ++y)
-    {
-        setY(y);
-        delay(STEP_DELAY_MS);
-    }
-
-    setY(0);
-
-    delay(TEST_PAUSE_MS);
-}
-
-
-// ============================================================
-// Main loop
+// Main test sequence
 // ============================================================
 
 void loop()
 {
     // --------------------------------------------------------
-    // X axis only
+    // 1. Square
     // --------------------------------------------------------
 
-    testX();
+    drawSquare(SHAPE_SIZE);
 
-    // Everything off for a while.
-    beamOff();
     stopDeflection();
-
-    delay(2000);
+    delay(TEST_PAUSE_MS);
 
 
     // --------------------------------------------------------
-    // Y axis only
+    // 2. Triangle
     // --------------------------------------------------------
 
-    testY();
+    drawTriangle(SHAPE_SIZE);
 
-    // Everything off for a while.
-    beamOff();
     stopDeflection();
+    delay(TEST_PAUSE_MS);
 
-    delay(3000);
+
+    // --------------------------------------------------------
+    // 3. Circle
+    // --------------------------------------------------------
+
+    drawCircle(SHAPE_SIZE);
+
+    stopDeflection();
+    delay(TEST_PAUSE_MS);
+
+
+    // --------------------------------------------------------
+    // 4. Concentric circles
+    // --------------------------------------------------------
+
+    drawConcentricCircles();
+
+    stopDeflection();
+    delay(TEST_PAUSE_MS);
+
+
+    // --------------------------------------------------------
+    // 5. Filled square
+    // --------------------------------------------------------
+
+    drawFilledSquare(SHAPE_SIZE);
+
+    stopDeflection();
+    delay(TEST_PAUSE_MS);
+
+
+    // --------------------------------------------------------
+    // 6. Horizontal + vertical cross
+    // --------------------------------------------------------
+
+    drawCross(SHAPE_SIZE);
+
+    stopDeflection();
+    delay(TEST_PAUSE_MS);
+
+
+    // --------------------------------------------------------
+    // 7. Diagonal cross
+    // --------------------------------------------------------
+
+    drawDiagonalCross(SHAPE_SIZE);
+
+    stopDeflection();
+    delay(TEST_PAUSE_MS);
+
+
+    // --------------------------------------------------------
+    // 8. Diamond
+    // --------------------------------------------------------
+
+    drawDiamond(SHAPE_SIZE);
+
+    stopDeflection();
+    delay(TEST_PAUSE_MS);
 }
