@@ -23,24 +23,18 @@ constexpr int BEAM_ALPHA_PIN = 15;
 // Configuration
 // ============================================================
 
-// Absolute hardware limit.
-// Previously observed stable maximum was about 140.
 constexpr int DEFLECTION_LIMIT = 140;
 
-// Shape size.
-// Keep this below the full driver range for now.
+// Shape size
 constexpr int SHAPE_SIZE = 80;
 
-// Time between individual points.
-constexpr int STEP_DELAY_MS = 0;
+// Keep each figure on screen for this long.
+constexpr unsigned long FIGURE_TIME_MS = 1000;
 
-// Pause after each shape.
-constexpr int TEST_PAUSE_MS = 0;
-
-// Number of points used for circles.
+// Circle resolution
 constexpr int CIRCLE_POINTS = 120;
 
-// Number of horizontal lines in filled square.
+// Filled square spacing
 constexpr int FILL_STEP = 4;
 
 // DRV8876 PWM
@@ -79,6 +73,9 @@ void setX(int position)
 
 void setY(int position)
 {
+    // Y axis is physically inverted.
+    position = -position;
+
     position = constrain(
         position,
         -DEFLECTION_LIMIT,
@@ -106,18 +103,16 @@ void setY(int position)
 // Beam control
 // ============================================================
 
-// Alpha is intentionally NOT used for now.
-// Beam stays on continuously.
+// Alpha intentionally ignored for now.
+// Beam remains ON continuously.
 
 void beamOn()
 {
-    // Intentionally empty.
 }
 
 
 void beamOff()
 {
-    // Intentionally empty.
 }
 
 
@@ -133,15 +128,13 @@ void stopDeflection()
 
 
 // ============================================================
-// Move to a 2D point
+// Move to a point
 // ============================================================
 
 void moveTo(int x, int y)
 {
     setX(x);
     setY(y);
-
-    delay(STEP_DELAY_MS);
 }
 
 
@@ -194,25 +187,10 @@ void drawLine(
 
 void drawSquare(int size)
 {
-    drawLine(
-        -size, -size,
-         size, -size
-    );
-
-    drawLine(
-         size, -size,
-         size,  size
-    );
-
-    drawLine(
-         size,  size,
-        -size,  size
-    );
-
-    drawLine(
-        -size,  size,
-        -size, -size
-    );
+    drawLine(-size, -size, size, -size);
+    drawLine( size, -size, size,  size);
+    drawLine( size,  size, -size, size);
+    drawLine(-size,  size, -size, -size);
 }
 
 
@@ -222,7 +200,6 @@ void drawSquare(int size)
 
 void drawTriangle(int size)
 {
-    // Equilateral-ish triangle.
     const int topY = size;
     const int bottomY = -size;
 
@@ -309,15 +286,8 @@ void drawFilledSquare(int size)
 
 void drawCross(int size)
 {
-    drawLine(
-        -size, 0,
-         size, 0
-    );
-
-    drawLine(
-        0, -size,
-        0,  size
-    );
+    drawLine(-size, 0, size, 0);
+    drawLine(0, -size, 0, size);
 }
 
 
@@ -345,25 +315,10 @@ void drawDiagonalCross(int size)
 
 void drawDiamond(int size)
 {
-    drawLine(
-        0,  size,
-        size, 0
-    );
-
-    drawLine(
-        size, 0,
-        0, -size
-    );
-
-    drawLine(
-        0, -size,
-        -size, 0
-    );
-
-    drawLine(
-        -size, 0,
-        0, size
-    );
+    drawLine(0, size, size, 0);
+    drawLine(size, 0, 0, -size);
+    drawLine(0, -size, -size, 0);
+    drawLine(-size, 0, 0, size);
 }
 
 
@@ -376,6 +331,26 @@ void drawConcentricCircles()
     drawCircle(25);
     drawCircle(50);
     drawCircle(75);
+}
+
+
+// ============================================================
+// Keep drawing a figure for a fixed time
+// ============================================================
+
+void showFigure(
+    void (*figure)(int),
+    int size
+)
+{
+    const unsigned long startTime = millis();
+
+    while (millis() - startTime < FIGURE_TIME_MS)
+    {
+        figure(size);
+    }
+
+    stopDeflection();
 }
 
 
@@ -394,11 +369,10 @@ void setup()
     pinMode(DRIVER_SLEEP_PIN, OUTPUT);
     pinMode(BEAM_ALPHA_PIN, OUTPUT);
 
-    // Keep drivers asleep during configuration.
+    // Keep drivers asleep while configuring.
     digitalWrite(DRIVER_SLEEP_PIN, LOW);
 
-    // IMPORTANT:
-    // Alpha is permanently enabled for these tests.
+    // Alpha is permanently enabled.
     digitalWrite(BEAM_ALPHA_PIN, HIGH);
 
     ledcAttach(
@@ -425,87 +399,81 @@ void setup()
 
 
 // ============================================================
-// Main test sequence
+// Main loop
 // ============================================================
 
 void loop()
 {
     // --------------------------------------------------------
-    // 1. Square
+    // Square
     // --------------------------------------------------------
 
-    drawSquare(SHAPE_SIZE);
+    showFigure(drawSquare, SHAPE_SIZE);
+
+
+    // --------------------------------------------------------
+    // Triangle
+    // --------------------------------------------------------
+
+    showFigure(drawTriangle, SHAPE_SIZE);
+
+
+    // --------------------------------------------------------
+    // Circle
+    // --------------------------------------------------------
+
+    showFigure(drawCircle, SHAPE_SIZE);
+
+
+    // --------------------------------------------------------
+    // Concentric circles
+    // --------------------------------------------------------
+
+    const unsigned long circlesStart = millis();
+
+    while (millis() - circlesStart < FIGURE_TIME_MS)
+    {
+        drawConcentricCircles();
+    }
 
     stopDeflection();
-    delay(TEST_PAUSE_MS);
 
 
     // --------------------------------------------------------
-    // 2. Triangle
+    // Filled square
     // --------------------------------------------------------
 
-    drawTriangle(SHAPE_SIZE);
+    const unsigned long filledStart = millis();
+
+    while (millis() - filledStart < FIGURE_TIME_MS)
+    {
+        drawFilledSquare(SHAPE_SIZE);
+    }
 
     stopDeflection();
-    delay(TEST_PAUSE_MS);
 
 
     // --------------------------------------------------------
-    // 3. Circle
+    // Cross
     // --------------------------------------------------------
 
-    drawCircle(SHAPE_SIZE);
-
-    stopDeflection();
-    delay(TEST_PAUSE_MS);
+    showFigure(drawCross, SHAPE_SIZE);
 
 
     // --------------------------------------------------------
-    // 4. Concentric circles
+    // Diagonal cross
     // --------------------------------------------------------
 
-    drawConcentricCircles();
-
-    stopDeflection();
-    delay(TEST_PAUSE_MS);
+    showFigure(drawDiagonalCross, SHAPE_SIZE);
 
 
     // --------------------------------------------------------
-    // 5. Filled square
+    // Diamond
     // --------------------------------------------------------
 
-    drawFilledSquare(SHAPE_SIZE);
-
-    stopDeflection();
-    delay(TEST_PAUSE_MS);
+    showFigure(drawDiamond, SHAPE_SIZE);
 
 
-    // --------------------------------------------------------
-    // 6. Horizontal + vertical cross
-    // --------------------------------------------------------
-
-    drawCross(SHAPE_SIZE);
-
-    stopDeflection();
-    delay(TEST_PAUSE_MS);
-
-
-    // --------------------------------------------------------
-    // 7. Diagonal cross
-    // --------------------------------------------------------
-
-    drawDiagonalCross(SHAPE_SIZE);
-
-    stopDeflection();
-    delay(TEST_PAUSE_MS);
-
-
-    // --------------------------------------------------------
-    // 8. Diamond
-    // --------------------------------------------------------
-
-    drawDiamond(SHAPE_SIZE);
-
-    stopDeflection();
-    delay(TEST_PAUSE_MS);
+    // Short pause before repeating.
+    delay(500);
 }
