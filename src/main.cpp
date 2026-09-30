@@ -573,7 +573,4 @@ void loop()
         drawDiamond,
         SHAPE_SIZE
     );
-
-
-    delay(500);
 }
