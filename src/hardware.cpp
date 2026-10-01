@@ -15,7 +15,7 @@ constexpr int X_DIR_PIN = 17;
 constexpr int Y_PWM_PIN = 18;
 constexpr int Y_DIR_PIN = 19;
 
-constexpr int DRIVER_SLEEP_PIN = 5;
+constexpr int DRIVER_SLEEP_PIN = 3;
 
 constexpr int BEAM_ALPHA_A_PIN = 15;
 constexpr int BEAM_ALPHA_B_PIN = 2;
@@ -25,9 +25,9 @@ constexpr int BEAM_ALPHA_B_PIN = 2;
 // Configuration
 // ============================================================
 
-constexpr int POINT_DELAY_US = 3;
+constexpr int POINT_DELAY_US = 0;
 
-constexpr int PWM_FREQUENCY = 100000;
+constexpr int PWM_FREQUENCY = 150000;//312500;
 constexpr int PWM_RESOLUTION = 8;
 
 

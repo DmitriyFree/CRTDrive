@@ -3,7 +3,7 @@
 #include "hardware.h"
 #include "drawing.h"
 
-constexpr int SHAPE_SIZE = 100;
+constexpr int SHAPE_SIZE = 140;
 
 void setup()
 {
@@ -12,13 +12,15 @@ void setup()
 
 void loop()
 {
-    /*showFigure(drawSquare, SHAPE_SIZE);
-    showFigure(drawTriangle, SHAPE_SIZE);
-    showFigure(drawCircle, SHAPE_SIZE);
-    showConcentricCircles();
-    showFigure(drawCross, SHAPE_SIZE);
-    showFigure(drawDiagonalCross, SHAPE_SIZE);
-    showFigure(drawDiamond, SHAPE_SIZE);*/
-    //showFilledSquare();
-    showChessRaster(SHAPE_SIZE);
+    //showFigure(drawSquare, SHAPE_SIZE);
+    //showFigure(drawTriangle, SHAPE_SIZE);
+    //showFigure(drawCircle, SHAPE_SIZE);
+    //showFilledSquare(SHAPE_SIZE);
+
+    showChessRaster(300);
+
+    //showConcentricCircles();
+    //showFigure(drawCross, SHAPE_SIZE);
+    //showFigure(drawDiagonalCross, SHAPE_SIZE);
+    //showFigure(drawDiamond, SHAPE_SIZE);
 }

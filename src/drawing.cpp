@@ -275,7 +275,7 @@ void showConcentricCircles()
 // Timed filled square
 // ============================================================
 
-void showFilledSquare()
+void showFilledSquare(int size)
 {
     const unsigned long startTime = millis();
 
@@ -284,7 +284,7 @@ void showFilledSquare()
         FIGURE_TIME_MS
     )
     {
-        drawFilledSquare(100);
+        drawFilledSquare(size);
     }
 
     stopDeflection();
@@ -308,6 +308,7 @@ void drawChessRaster(int size)
 
         for (int i = 0; i < size; ++i)
         {
+            if(!i%50)continue; // Skip some points to reduce the number of points drawn
             const int x = reverse
                 ? (size - 1 - i)
                 : i;
