@@ -289,3 +289,56 @@ void showFilledSquare()
 
     stopDeflection();
 }
+
+void drawChessRaster(int size)
+{
+    const int half = size / 2;
+    const int left = -half;
+    const int top = -half;
+
+    constexpr int CELLS = 4;
+    const int cellSize = size / CELLS;
+
+    for (int y = 0; y < size; ++y)
+    {
+        const int py = top + y;
+
+        // Serpentine raster
+        const bool reverse = (y & 1);
+
+        for (int i = 0; i < size; ++i)
+        {
+            const int x = reverse
+                ? (size - 1 - i)
+                : i;
+
+            const int px = left + x;
+
+            const int cellX = x / cellSize;
+            const int cellY = y / cellSize;
+
+            const bool filled = ((cellX + cellY) & 1) == 0;
+
+            if (filled)
+                beamOn();
+            else
+                beamOff();
+
+            setPoint(px, py);
+        }
+    }
+
+    beamOff();
+}
+void showChessRaster(int size)
+{
+    const unsigned long start = millis();
+
+    while (millis() - start < FIGURE_TIME_MS)
+    {
+        drawChessRaster(size);
+    }
+
+    beamOff();
+    stopDeflection();
+}

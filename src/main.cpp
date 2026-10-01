@@ -12,37 +12,13 @@ void setup()
 
 void loop()
 {
-    showFigure(
-        drawSquare,
-        SHAPE_SIZE
-    );
-
-    showFigure(
-        drawTriangle,
-        SHAPE_SIZE
-    );
-
-    showFigure(
-        drawCircle,
-        SHAPE_SIZE
-    );
-
+    /*showFigure(drawSquare, SHAPE_SIZE);
+    showFigure(drawTriangle, SHAPE_SIZE);
+    showFigure(drawCircle, SHAPE_SIZE);
     showConcentricCircles();
-
-    showFilledSquare();
-
-    showFigure(
-        drawCross,
-        SHAPE_SIZE
-    );
-
-    showFigure(
-        drawDiagonalCross,
-        SHAPE_SIZE
-    );
-
-    showFigure(
-        drawDiamond,
-        SHAPE_SIZE
-    );
+    showFigure(drawCross, SHAPE_SIZE);
+    showFigure(drawDiagonalCross, SHAPE_SIZE);
+    showFigure(drawDiamond, SHAPE_SIZE);*/
+    //showFilledSquare();
+    showChessRaster(SHAPE_SIZE);
 }

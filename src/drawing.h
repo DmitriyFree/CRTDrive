@@ -16,3 +16,6 @@ void drawConcentricCircles();
 void showFigure(void (*figure)(int), int size);
 void showConcentricCircles();
 void showFilledSquare();
+
+void drawChessRaster(int size);
+void showChessRaster(int size);

@@ -16,7 +16,10 @@ constexpr int Y_PWM_PIN = 18;
 constexpr int Y_DIR_PIN = 19;
 
 constexpr int DRIVER_SLEEP_PIN = 5;
-constexpr int BEAM_ALPHA_PIN = 15;
+
+constexpr int BEAM_ALPHA_A_PIN = 15;
+constexpr int BEAM_ALPHA_B_PIN = 2;
+
 
 // ============================================================
 // Configuration
@@ -181,12 +184,14 @@ void stopDeflection()
 
 void beamOn()
 {
-    // Intentionally always on for now.
+    GPIO.out_w1ts = (1UL << BEAM_ALPHA_A_PIN); // 15 = HIGH
+    GPIO.out_w1tc = (1UL << BEAM_ALPHA_B_PIN); // 2  = LOW
 }
 
 void beamOff()
 {
-    // Intentionally always on for now.
+    GPIO.out_w1tc = (1UL << BEAM_ALPHA_A_PIN); // 15 = LOW
+    GPIO.out_w1ts = (1UL << BEAM_ALPHA_B_PIN); // 2  = HIGH
 }
 
 
@@ -203,13 +208,14 @@ void hardwareInit()
     pinMode(Y_DIR_PIN, OUTPUT);
 
     pinMode(DRIVER_SLEEP_PIN, OUTPUT);
-    pinMode(BEAM_ALPHA_PIN, OUTPUT);
+    pinMode(BEAM_ALPHA_A_PIN, OUTPUT);
+    pinMode(BEAM_ALPHA_B_PIN, OUTPUT);
 
     // Keep drivers asleep during configuration.
     digitalWrite(DRIVER_SLEEP_PIN, LOW);
 
-    // Beam permanently enabled.
-    digitalWrite(BEAM_ALPHA_PIN, HIGH);
+    // Beam enabled
+    beamOn();
 
     ledcAttach(
         X_PWM_PIN,
