@@ -5,6 +5,8 @@ void drawClock(int hours, int minutes, int seconds);
 
 void drawAnalogClock(int hours, int minutes, int seconds);
 
+void drawDwellChessRaster(int size);
+
 void drawLine(int x1, int y1, int x2, int y2);
 
 void drawSquare(int size);

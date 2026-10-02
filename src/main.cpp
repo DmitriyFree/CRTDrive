@@ -26,6 +26,7 @@ void loop()
     //showFigure(drawDiagonalCross, SHAPE_SIZE);
     //showFigure(drawDiamond, SHAPE_SIZE);
 
+    /*//CLOCKS
     static unsigned long startTime = millis();
     const unsigned long elapsed = (millis() - startTime) / 1000;
 
@@ -33,6 +34,10 @@ void loop()
     const int minutes = (elapsed / 60) % 60;
     const int seconds = elapsed % 60;
 
-    drawClock(hours, minutes, seconds);
+    //drawClock(hours, minutes, seconds);
     //drawAnalogClock(hours, minutes, seconds);
+    */
+   
+    // Dwell chess raster
+    drawDwellChessRaster(SHAPE_SIZE);
 }

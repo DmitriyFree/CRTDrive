@@ -511,3 +511,38 @@ void drawAnalogClock(int hours, int minutes, int seconds)
              cx + (int)(secondLength * cosf(secondAngle)),
              cy + (int)(secondLength * sinf(secondAngle)));
 }
+
+void drawDwellChessRaster(int size)
+{
+    constexpr int CELLS = 4;
+
+    // Dwell durations in microseconds, darkest to brightest.
+    constexpr int DWELL[4] = {
+        0, 2, 5, 10
+    };
+
+    const int cellSize = size / CELLS;
+    const int left = -size / 2;
+    const int top = -size / 2;
+
+    for (int y = 0; y < size; ++y)
+    {
+        const bool reverse = y & 1;
+
+        for (int i = 0; i < size; ++i)
+        {
+            const int x = reverse ? size - 1 - i : i;
+
+            const int cellX = x / cellSize;
+            const int cellY = y / cellSize;
+
+            // Four brightness levels in a repeating pattern.
+            const int level = (cellX + cellY) % 4;
+
+            setX(left + x);
+            setY(top + y);
+
+            delayMicroseconds(DWELL[level]);
+        }
+    }
+}
