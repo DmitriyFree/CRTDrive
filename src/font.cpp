@@ -180,31 +180,55 @@ uint32_t decodeUTF8(const char*& text)
 {
     uint8_t c = static_cast<uint8_t>(*text++);
 
+    // ASCII
     if (c < 0x80)
         return c;
 
+    // 2-byte UTF-8
     if ((c & 0xE0) == 0xC0)
     {
-        uint32_t result = c & 0x1F;
-        result = (result << 6) | (static_cast<uint8_t>(*text++) & 0x3F);
-        return result;
+        uint8_t c1 = static_cast<uint8_t>(*text);
+
+        if ((c1 & 0xC0) != 0x80)
+            return 0;
+
+        ++text;
+
+        return ((c & 0x1F) << 6)
+             | (c1 & 0x3F);
     }
 
+    // 3-byte UTF-8
     if ((c & 0xF0) == 0xE0)
     {
-        uint32_t result = c & 0x0F;
-        result = (result << 6) | (static_cast<uint8_t>(*text++) & 0x3F);
-        result = (result << 6) | (static_cast<uint8_t>(*text++) & 0x3F);
-        return result;
+        uint8_t c1 = static_cast<uint8_t>(*text++);
+        uint8_t c2 = static_cast<uint8_t>(*text++);
+
+        if ((c1 & 0xC0) != 0x80 ||
+            (c2 & 0xC0) != 0x80)
+            return 0;
+
+        return ((c & 0x0F) << 12)
+             | ((c1 & 0x3F) << 6)
+             | (c2 & 0x3F);
     }
 
+    // 4-byte UTF-8
     if ((c & 0xF8) == 0xF0)
     {
-        uint32_t result = c & 0x07;
-        result = (result << 6) | (static_cast<uint8_t>(*text++) & 0x3F);
-        result = (result << 6) | (static_cast<uint8_t>(*text++) & 0x3F);
-        result = (result << 6) | (static_cast<uint8_t>(*text++) & 0x3F);
-        return result;
+        uint8_t c1 = static_cast<uint8_t>(*text++);
+        uint8_t c2 = static_cast<uint8_t>(*text++);
+        uint8_t c3 = static_cast<uint8_t>(*text++);
+
+        if ((c1 & 0xC0) != 0x80 ||
+            (c2 & 0xC0) != 0x80 ||
+            (c3 & 0xC0) != 0x80)
+            return 0;
+
+        return ((c & 0x07) << 18)
+             | ((c1 & 0x3F) << 12)
+             | ((c2 & 0x3F) << 6)
+             | (c3 & 0x3F);
     }
 
     return 0;
