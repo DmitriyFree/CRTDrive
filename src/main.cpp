@@ -37,7 +37,9 @@ void loop()
     //drawClock(hours, minutes, seconds);
     //drawAnalogClock(hours, minutes, seconds);
     */
-   
+
     // Dwell chess raster
     drawDwellChessRaster(SHAPE_SIZE);
+
+    //drawText("HELLO JUNE!", -45, -20, 4);
 }
