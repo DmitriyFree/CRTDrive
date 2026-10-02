@@ -1,5 +1,6 @@
 #include "drawing.h"
 #include "hardware.h"
+#include "font.h"
 
 #include <Arduino.h>
 #include <math.h>
@@ -498,72 +499,6 @@ void drawDwellChessRaster(int size)
     }
 }
 
-// 5x7 font: digits, uppercase letters, space and common punctuation.
-struct Glyph
-{
-    char character;
-    uint8_t rows[7];
-};
-
-static const Glyph FONT[] = {
-    {'A',{14,17,17,31,17,17,17}},
-    {'B',{30,17,17,30,17,17,30}},
-    {'C',{14,17,16,16,16,17,14}},
-    {'D',{30,17,17,17,17,17,30}},
-    {'E',{31,16,16,30,16,16,31}},
-    {'F',{31,16,16,30,16,16,16}},
-    {'G',{14,17,16,23,17,17,15}},
-    {'H',{17,17,17,31,17,17,17}},
-    {'I',{14,4,4,4,4,4,14}},
-    {'J',{7,2,2,2,2,18,12}},
-    {'K',{17,18,20,24,20,18,17}},
-    {'L',{16,16,16,16,16,16,31}},
-    {'M',{17,27,21,21,17,17,17}},
-    {'N',{17,25,21,19,17,17,17}},
-    {'O',{14,17,17,17,17,17,14}},
-    {'P',{30,17,17,30,16,16,16}},
-    {'Q',{14,17,17,17,21,18,13}},
-    {'R',{30,17,17,30,20,18,17}},
-    {'S',{15,16,16,14,1,1,30}},
-    {'T',{31,4,4,4,4,4,4}},
-    {'U',{17,17,17,17,17,17,14}},
-    {'V',{17,17,17,17,17,10,4}},
-    {'W',{17,17,17,21,21,21,10}},
-    {'X',{17,17,10,4,10,17,17}},
-    {'Y',{17,17,10,4,4,4,4}},
-    {'Z',{31,1,2,4,8,16,31}},
-    {'0',{14,17,19,21,25,17,14}},
-    {'1',{4,12,4,4,4,4,14}},
-    {'2',{14,17,1,2,4,8,31}},
-    {'3',{30,1,1,14,1,1,30}},
-    {'4',{2,6,10,18,31,2,2}},
-    {'5',{31,16,16,30,1,1,30}},
-    {'6',{14,16,16,30,17,17,14}},
-    {'7',{31,1,2,4,8,8,8}},
-    {'8',{14,17,17,14,17,17,14}},
-    {'9',{14,17,17,15,1,1,14}},
-    {'-',{0,0,0,31,0,0,0}},
-    {'.',{0,0,0,0,0,12,12}},
-    {':',{0,12,12,0,12,12,0}},
-    {'!',{4,4,4,4,4,0,4}},
-    {'?',{14,17,1,2,4,0,4}},
-    {' ',{0,0,0,0,0,0,0}}
-};
-
-static const Glyph* findGlyph(char c)
-{
-    if (c >= 'a' && c <= 'z')
-        c -= 'a' - 'A';
-
-    for (const auto& glyph : FONT)
-    {
-        if (glyph.character == c)
-            return &glyph;
-    }
-
-    return nullptr;
-}
-
 void drawText(const char* text, int x, int y, int pixelSize)
 {
     const int charWidth = 6 * pixelSize;
@@ -587,8 +522,9 @@ void drawText(const char* text, int x, int y, int pixelSize)
                             px, py,
                             px + pixelSize - 1, py
                         );
-                        delayMicroseconds(500);
+                        
                     }
+                    delayMicroseconds(300);
                 }
             }
         }
@@ -600,15 +536,13 @@ void drawText(const char* text, int x, int y, int pixelSize)
 void drawScrollingText(const char* text, int x, int y, int pixelSize)
 {
     constexpr int visibleColumns = 12;
-    constexpr int scrollDelayUs = 2500; // 5x slower
-
-    constexpr int charWidth = 6; // 5 glyph columns + 1 spacing
+    constexpr int glyphBudgetUs = 15000;
+    constexpr int charWidth = 6;
 
     int textLength = 0;
     while (text[textLength]) ++textLength;
 
     const int totalColumns = textLength * charWidth;
-
     if (totalColumns == 0)
         return;
 
@@ -616,30 +550,77 @@ void drawScrollingText(const char* text, int x, int y, int pixelSize)
 
     while (true)
     {
+        // Each visible glyph is handled once per frame.
         for (int col = 0; col < visibleColumns; ++col)
         {
             const int textCol = (offset + col) % totalColumns;
             const int charIndex = textCol / charWidth;
-            const int glyphCol = textCol % charWidth;
 
-            if (glyphCol >= 5)
+            // Skip if this glyph was already handled.
+            bool alreadyProcessed = false;
+            for (int prev = 0; prev < col; ++prev)
+            {
+                if (((offset + prev) % totalColumns) / charWidth == charIndex)
+                {
+                    alreadyProcessed = true;
+                    break;
+                }
+            }
+            if (alreadyProcessed)
                 continue;
 
             const Glyph* glyph = findGlyph(text[charIndex]);
-            if (!glyph)
-                continue;
 
-            for (int row = 0; row < 7; ++row)
+            // Count all lit lines in the complete glyph.
+            int lineCount = 0;
+            if (glyph)
             {
-                if (glyph->rows[row] & (1 << (4 - glyphCol)))
+                for (int row = 0; row < 7; ++row)
                 {
-                    const int px = x + col * pixelSize;
-                    const int py = y + row * pixelSize;
-
-                    drawLine(px, py, px + pixelSize - 1, py);
-                    delayMicroseconds(scrollDelayUs);
+                    for (int c = 0; c < 5; ++c)
+                    {
+                        if (glyph->rows[row] & (1 << (4 - c)))
+                            ++lineCount;
+                    }
                 }
             }
+
+            const int delayUs = lineCount > 0
+                ? glyphBudgetUs / lineCount
+                : glyphBudgetUs;
+
+            // Draw only the columns currently visible.
+            if (glyph && lineCount > 0)
+            {
+                for (int row = 0; row < 7; ++row)
+                {
+                    for (int c = 0; c < 5; ++c)
+                    {
+                        const int screenCol = col + c -
+                            ((offset + col) % charWidth);
+
+                        const int glyphTextCol = (charIndex * charWidth + c);
+                        const int relativeCol = (glyphTextCol - offset +
+                            totalColumns) % totalColumns;
+
+                        if (relativeCol >= visibleColumns)
+                            continue;
+
+                        if (glyph->rows[row] & (1 << (4 - c)))
+                        {
+                            const int px = x + relativeCol * pixelSize;
+                            const int py = y + row * pixelSize;
+
+                            drawLine(px, py, px + pixelSize - 1, py);
+                            delayMicroseconds(delayUs);
+                        }
+                    }
+                }
+            }
+
+            // If the glyph has no lines, consume its entire budget.
+            if (lineCount == 0)
+                delayMicroseconds(glyphBudgetUs);
         }
 
         offset = (offset + 1) % totalColumns;
