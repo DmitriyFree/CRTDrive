@@ -566,7 +566,7 @@ static const Glyph* findGlyph(char c)
 
 void drawText(const char* text, int x, int y, int pixelSize)
 {
-    const int charWidth = 200 * pixelSize;
+    const int charWidth = 6 * pixelSize;
 
     while (*text)
     {
@@ -587,6 +587,7 @@ void drawText(const char* text, int x, int y, int pixelSize)
                             px, py,
                             px + pixelSize - 1, py
                         );
+                        delayMicroseconds(500);
                     }
                 }
             }
@@ -594,5 +595,53 @@ void drawText(const char* text, int x, int y, int pixelSize)
 
         x += charWidth;
         ++text;
+    }
+}
+void drawScrollingText(const char* text, int x, int y, int pixelSize)
+{
+    constexpr int visibleColumns = 12;
+    constexpr int scrollDelayUs = 2500; // 5x slower
+
+    constexpr int charWidth = 6; // 5 glyph columns + 1 spacing
+
+    int textLength = 0;
+    while (text[textLength]) ++textLength;
+
+    const int totalColumns = textLength * charWidth;
+
+    if (totalColumns == 0)
+        return;
+
+    int offset = 0;
+
+    while (true)
+    {
+        for (int col = 0; col < visibleColumns; ++col)
+        {
+            const int textCol = (offset + col) % totalColumns;
+            const int charIndex = textCol / charWidth;
+            const int glyphCol = textCol % charWidth;
+
+            if (glyphCol >= 5)
+                continue;
+
+            const Glyph* glyph = findGlyph(text[charIndex]);
+            if (!glyph)
+                continue;
+
+            for (int row = 0; row < 7; ++row)
+            {
+                if (glyph->rows[row] & (1 << (4 - glyphCol)))
+                {
+                    const int px = x + col * pixelSize;
+                    const int py = y + row * pixelSize;
+
+                    drawLine(px, py, px + pixelSize - 1, py);
+                    delayMicroseconds(scrollDelayUs);
+                }
+            }
+        }
+
+        offset = (offset + 1) % totalColumns;
     }
 }

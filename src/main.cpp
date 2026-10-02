@@ -27,19 +27,20 @@ void loop()
     //showFigure(drawDiamond, SHAPE_SIZE);
 
     //CLOCKS
-    static unsigned long startTime = millis();
+    /*static unsigned long startTime = millis();
     const unsigned long elapsed = (millis() - startTime) / 10;
 
     const int hours   = (elapsed / 3600) % 24;
     const int minutes = (elapsed / 60) % 60;
     const int seconds = elapsed % 60;
 
-    //drawClock(hours, minutes, seconds);
-    drawAnalogClock(hours, minutes, seconds);
+    //drawClock(hours, minutes, seconds);*/
+    //drawAnalogClock(hours, minutes, seconds);
     
 
     // Dwell chess raster
     //drawDwellChessRaster(SHAPE_SIZE);
 
-    //drawText("2", 0, 0, 20);
+    //drawText("he", 0, 0, 20); //okay
+    drawScrollingText("Toob group ", 0, 0, 20);
 }

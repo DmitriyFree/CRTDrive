@@ -27,6 +27,7 @@ constexpr int BEAM_ALPHA_B_PIN = 2;
 
 constexpr int POINT_DELAY_US = 0;
 
+constexpr int PWM_FREQUENCY = 150000;
 constexpr int PWM_RESOLUTION = 8;
 
 
@@ -111,7 +112,7 @@ void setX(int x)
     else
     {
         // Keep a tiny current through zero.
-        fastPwmX(1);
+        fastPwmX(0);
     }
 }
 

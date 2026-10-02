@@ -8,6 +8,7 @@ void drawAnalogClock(int hours, int minutes, int seconds);
 void drawDwellChessRaster(int size);
 
 void drawText(const char* text, int x, int y, int pixelSize);
+void drawScrollingText(const char* text, int x, int y, int pixelSize);
 
 void drawLine(int x1, int y1, int x2, int y2);
 
