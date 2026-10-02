@@ -42,5 +42,5 @@ void loop()
     //drawDwellChessRaster(SHAPE_SIZE);
 
     //drawText("he", 0, 0, 20); //okay
-    drawScrollingText("Toob Group ", 0, 0, 20);
+    drawScrollingText("Котик огурчик ", 0, 0, 20);
 }

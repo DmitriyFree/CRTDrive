@@ -538,11 +538,21 @@ void drawScrollingText(const char* text, int x, int y, int pixelSize)
     constexpr int visibleColumns = 12;
     constexpr int glyphBudgetUs = 15000;
     constexpr int charWidth = 6;
+    constexpr int maxCharacters = 128;
 
+    // Decode UTF-8 string into Unicode codepoints
+    uint32_t characters[maxCharacters];
     int textLength = 0;
-    while (text[textLength]) ++textLength;
+
+    const char* ptr = text;
+
+    while (*ptr && textLength < maxCharacters)
+    {
+        characters[textLength++] = decodeUTF8(ptr);
+    }
 
     const int totalColumns = textLength * charWidth;
+
     if (totalColumns == 0)
         return;
 
@@ -550,29 +560,33 @@ void drawScrollingText(const char* text, int x, int y, int pixelSize)
 
     while (true)
     {
-        // Each visible glyph is handled once per frame.
         for (int col = 0; col < visibleColumns; ++col)
         {
             const int textCol = (offset + col) % totalColumns;
             const int charIndex = textCol / charWidth;
 
-            // Skip if this glyph was already handled.
+            // Has this glyph already been processed this frame?
             bool alreadyProcessed = false;
+
             for (int prev = 0; prev < col; ++prev)
             {
-                if (((offset + prev) % totalColumns) / charWidth == charIndex)
+                const int prevTextCol = (offset + prev) % totalColumns;
+
+                if (prevTextCol / charWidth == charIndex)
                 {
                     alreadyProcessed = true;
                     break;
                 }
             }
+
             if (alreadyProcessed)
                 continue;
 
-            const Glyph* glyph = findGlyph(text[charIndex]);
+            const Glyph* glyph = findGlyph(characters[charIndex]);
 
-            // Count all lit lines in the complete glyph.
+            // Count all lines in this glyph
             int lineCount = 0;
+
             if (glyph)
             {
                 for (int row = 0; row < 7; ++row)
@@ -585,42 +599,47 @@ void drawScrollingText(const char* text, int x, int y, int pixelSize)
                 }
             }
 
-            const int delayUs = lineCount > 0
-                ? glyphBudgetUs / lineCount
-                : glyphBudgetUs;
-
-            // Draw only the columns currently visible.
-            if (glyph && lineCount > 0)
+            // Space / unknown glyph
+            if (lineCount == 0)
             {
-                for (int row = 0; row < 7; ++row)
-                {
-                    for (int c = 0; c < 5; ++c)
-                    {
-                        const int screenCol = col + c -
-                            ((offset + col) % charWidth);
-
-                        const int glyphTextCol = (charIndex * charWidth + c);
-                        const int relativeCol = (glyphTextCol - offset +
-                            totalColumns) % totalColumns;
-
-                        if (relativeCol >= visibleColumns)
-                            continue;
-
-                        if (glyph->rows[row] & (1 << (4 - c)))
-                        {
-                            const int px = x + relativeCol * pixelSize;
-                            const int py = y + row * pixelSize;
-
-                            drawLine(px, py, px + pixelSize - 1, py);
-                            delayMicroseconds(delayUs);
-                        }
-                    }
-                }
+                delayMicroseconds(glyphBudgetUs);
+                continue;
             }
 
-            // If the glyph has no lines, consume its entire budget.
-            if (lineCount == 0)
-                delayMicroseconds(glyphBudgetUs);
+            // Equal total time for every glyph
+            const int delayUs = glyphBudgetUs / lineCount;
+
+            // Draw visible portion of glyph
+            for (int row = 0; row < 7; ++row)
+            {
+                for (int c = 0; c < 5; ++c)
+                {
+                    if (!(glyph->rows[row] & (1 << (4 - c))))
+                        continue;
+
+                    const int glyphTextCol = charIndex * charWidth + c;
+
+                    const int relativeCol =
+                        (glyphTextCol - offset + totalColumns)
+                        % totalColumns;
+
+                    // Outside visible window
+                    if (relativeCol >= visibleColumns)
+                        continue;
+
+                    const int px = x + relativeCol * pixelSize;
+                    const int py = y + row * pixelSize;
+
+                    drawLine(
+                        px,
+                        py,
+                        px + pixelSize - 1,
+                        py
+                    );
+
+                    delayMicroseconds(delayUs);
+                }
+            }
         }
 
         offset = (offset + 1) % totalColumns;
