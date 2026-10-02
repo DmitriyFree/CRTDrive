@@ -27,7 +27,6 @@ constexpr int BEAM_ALPHA_B_PIN = 2;
 
 constexpr int POINT_DELAY_US = 0;
 
-constexpr int PWM_FREQUENCY = 150000;//312500;
 constexpr int PWM_RESOLUTION = 8;
 
 

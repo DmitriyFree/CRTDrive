@@ -3,7 +3,7 @@
 #include "hardware.h"
 #include "drawing.h"
 
-constexpr int SHAPE_SIZE = 140;
+constexpr int SHAPE_SIZE = 200;
 
 void setup()
 {
@@ -26,20 +26,20 @@ void loop()
     //showFigure(drawDiagonalCross, SHAPE_SIZE);
     //showFigure(drawDiamond, SHAPE_SIZE);
 
-    /*//CLOCKS
+    //CLOCKS
     static unsigned long startTime = millis();
-    const unsigned long elapsed = (millis() - startTime) / 1000;
+    const unsigned long elapsed = (millis() - startTime) / 10;
 
     const int hours   = (elapsed / 3600) % 24;
     const int minutes = (elapsed / 60) % 60;
     const int seconds = elapsed % 60;
 
     //drawClock(hours, minutes, seconds);
-    //drawAnalogClock(hours, minutes, seconds);
-    */
+    drawAnalogClock(hours, minutes, seconds);
+    
 
     // Dwell chess raster
-    drawDwellChessRaster(SHAPE_SIZE);
+    //drawDwellChessRaster(SHAPE_SIZE);
 
-    //drawText("HELLO JUNE!", -45, -20, 4);
+    //drawText("2", 0, 0, 20);
 }

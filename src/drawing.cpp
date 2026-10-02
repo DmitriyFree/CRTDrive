@@ -401,8 +401,8 @@ void drawDigit(int digit, int x, int y, int w, int h)
 }
 void drawClock(int hours, int minutes, int seconds)
 {
-    constexpr int DIGIT_W = 24;
-    constexpr int DIGIT_H = 48;
+    constexpr int DIGIT_W = 100;
+    constexpr int DIGIT_H = 200;
     constexpr int GAP = 5;
     constexpr int COLON_W = 10;
 
@@ -441,75 +441,26 @@ void drawClock(int hours, int minutes, int seconds)
 }
 void drawAnalogClock(int hours, int minutes, int seconds)
 {
-    //constexpr float PI = 3.14159265f;
-    constexpr int RADIUS = 75;
+    constexpr int cx = 0, cy = 0;
 
-    const int cx = 0;
-    const int cy = 0;
+    const float angles[] = {
+        2 * PI * ((hours % 12 + minutes / 60.0f) / 12.0f) - PI / 2,
+        2 * PI * ((minutes + seconds / 60.0f) / 60.0f) - PI / 2,
+        2 * PI * (seconds / 60.0f) - PI / 2
+    };
 
-    // Draw the outer dial as a polygon.
-    constexpr int CIRCLE_POINTS = 120;
+    const int lengths[] = {150, 200, 240};
 
-    int prevX = cx + RADIUS;
-    int prevY = cy;
-
-    for (int i = 1; i <= CIRCLE_POINTS; ++i)
+    for (int i = 0; i < 3; ++i)
     {
-        const float angle = 2.0f * PI * i / CIRCLE_POINTS;
-        const int x = cx + (int)(RADIUS * cosf(angle));
-        const int y = cy + (int)(RADIUS * sinf(angle));
+        const int x = cx + lengths[i] * cosf(angles[i]);
+        const int y = cy + lengths[i] * sinf(angles[i]);
 
-        drawLine(prevX, prevY, x, y);
-
-        prevX = x;
-        prevY = y;
+        drawLine(cx, cy, x, y);
+        delayMicroseconds(300);
+        drawLine(x, y, cx, cy);
+        delayMicroseconds(300); // Small delay to allow the beam to dwell on the line
     }
-
-    // Hour and minute tick marks.
-    for (int i = 0; i < 60; ++i)
-    {
-        const float angle = 2.0f * PI * i / 60.0f - PI / 2.0f;
-
-        const bool major = (i % 5 == 0);
-        const int outer = RADIUS - 2;
-        const int inner = major ? RADIUS - 12 : RADIUS - 5;
-
-        const int x1 = cx + (int)(outer * cosf(angle));
-        const int y1 = cy + (int)(outer * sinf(angle));
-        const int x2 = cx + (int)(inner * cosf(angle));
-        const int y2 = cy + (int)(inner * sinf(angle));
-
-        drawLine(x1, y1, x2, y2);
-    }
-
-    // Convert time to angles.
-    const float secondAngle =
-        2.0f * PI * (seconds / 60.0f) - PI / 2.0f;
-
-    const float minuteAngle =
-        2.0f * PI * ((minutes + seconds / 60.0f) / 60.0f)
-        - PI / 2.0f;
-
-    const float hourAngle =
-        2.0f * PI * ((hours % 12 + minutes / 60.0f) / 12.0f)
-        - PI / 2.0f;
-
-    // Draw hands from the center.
-    const int hourLength = 38;
-    const int minuteLength = 58;
-    const int secondLength = 66;
-
-    drawLine(cx, cy,
-             cx + (int)(hourLength * cosf(hourAngle)),
-             cy + (int)(hourLength * sinf(hourAngle)));
-
-    drawLine(cx, cy,
-             cx + (int)(minuteLength * cosf(minuteAngle)),
-             cy + (int)(minuteLength * sinf(minuteAngle)));
-
-    drawLine(cx, cy,
-             cx + (int)(secondLength * cosf(secondAngle)),
-             cy + (int)(secondLength * sinf(secondAngle)));
 }
 
 void drawDwellChessRaster(int size)
@@ -615,7 +566,7 @@ static const Glyph* findGlyph(char c)
 
 void drawText(const char* text, int x, int y, int pixelSize)
 {
-    const int charWidth = 6 * pixelSize;
+    const int charWidth = 200 * pixelSize;
 
     while (*text)
     {
