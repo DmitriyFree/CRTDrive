@@ -24,7 +24,8 @@ void drawLine(
     int x1,
     int y1,
     int x2,
-    int y2
+    int y2,
+    int delayUs = 0
 )
 {
     const int dx = abs(x2 - x1);
@@ -55,6 +56,7 @@ void drawLine(
             error += dx;
             y1 += sy;
         }
+        delayMicroseconds(delayUs);
     }
 }
 
@@ -643,5 +645,75 @@ void drawScrollingText(const char* text, int x, int y, int pixelSize)
         }
 
         offset = (offset + 1) % totalColumns;
+    }
+}
+void drawPixelMatrix(
+    int x,
+    int y,
+    int columns = 12,
+    int rows = 7,
+    int pixelSize = 20,
+    int spacing = 0
+){
+    constexpr int totalBudgetUs = 30000;
+
+    const int totalPixels = columns * rows;
+    if (totalPixels <= 0)
+        return;
+
+    const int delayUs = totalBudgetUs / totalPixels;
+
+    for (int row = 0; row < rows; ++row)
+    {
+        for (int col = 0; col < columns; ++col)
+        {
+            const int px = x + col * (pixelSize + spacing);
+            const int py = y + row * (pixelSize + spacing);
+
+            // Draw every pixel for now
+            
+            drawLine(
+                px,
+                py,
+                px + pixelSize - 1,
+                py
+            );
+            delayMicroseconds(delayUs);
+        }
+    }
+}
+
+void drawChessMatrix(
+    int x,
+    int y,
+    int columns = 12,
+    int rows = 7,
+    int pixelSize = 20,
+    int spacing = 0
+){
+    constexpr int totalBudgetUs = 100000;
+
+    const int totalPixels = columns * rows;
+    if (totalPixels <= 0)
+        return;
+
+    const int delayUs = totalBudgetUs / totalPixels;
+
+    for (int row = 0; row < rows; ++row)
+    {
+        for (int col = 0; col < columns; ++col)
+        {
+            const int px = x + col * (pixelSize + spacing);
+            const int py = y + row * (pixelSize + spacing);
+
+            // Checkerboard: skip alternating pixels
+            drawLine(
+                px,
+                py,
+                px + pixelSize - 1,
+                py,
+                ((row / 2) + (col / 2)) % 2 == 0 ? 30 : 0
+            );
+        }
     }
 }

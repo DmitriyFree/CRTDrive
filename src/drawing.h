@@ -9,8 +9,17 @@ void drawDwellChessRaster(int size);
 
 void drawText(const char* text, int x, int y, int pixelSize);
 void drawScrollingText(const char* text, int x, int y, int pixelSize);
+void drawPixelMatrix(int x, int y, int columns, int rows, int pixelSize, int spacing);
+void drawChessMatrix(
+    int x,
+    int y,
+    int columns,
+    int rows,
+    int pixelSize,
+    int spacing
+);
 
-void drawLine(int x1, int y1, int x2, int y2);
+void drawLine(int x1, int y1, int x2, int y2, int delayUs);
 
 void drawSquare(int size);
 void drawTriangle(int size);

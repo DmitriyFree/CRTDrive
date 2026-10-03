@@ -42,5 +42,7 @@ void loop()
     //drawDwellChessRaster(SHAPE_SIZE);
 
     //drawText("he", 0, 0, 20); //okay
-    drawScrollingText("Котик огурчик ", 0, 0, 20);
+    //drawScrollingText("June is awesome! ", 0, 0, 20);
+    //drawPixelMatrix(0, 0, 64, 64, 1, 2);
+    drawChessMatrix(-100, -100, 16, 16, 15, 5);
 }
