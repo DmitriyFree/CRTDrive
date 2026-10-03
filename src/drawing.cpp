@@ -689,30 +689,29 @@ void drawChessMatrix(
     int columns = 12,
     int rows = 7,
     int pixelSize = 20,
-    int spacing = 0
+    int spacing = 0,
+    int delayUs = 0,
+    int cellsize = 20
 ){
-    constexpr int totalBudgetUs = 100000;
-
-    const int totalPixels = columns * rows;
-    if (totalPixels <= 0)
-        return;
-
-    const int delayUs = totalBudgetUs / totalPixels;
-
     for (int row = 0; row < rows; ++row)
     {
-        for (int col = 0; col < columns; ++col)
+        for (int i = 0; i < columns; ++i)
         {
+            // Alternate drawing direction per row
+            const int col = (row % 2 == 0)
+                ? i
+                : columns - 1 - i;
+
             const int px = x + col * (pixelSize + spacing);
             const int py = y + row * (pixelSize + spacing);
 
-            // Checkerboard: skip alternating pixels
             drawLine(
                 px,
                 py,
                 px + pixelSize - 1,
                 py,
-                ((row / 2) + (col / 2)) % 2 == 0 ? 30 : 0
+                ((row / cellsize) + (col / cellsize)) % 2 == 0
+                    ? delayUs : 0
             );
         }
     }

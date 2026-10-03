@@ -44,5 +44,5 @@ void loop()
     //drawText("he", 0, 0, 20); //okay
     //drawScrollingText("June is awesome! ", 0, 0, 20);
     //drawPixelMatrix(0, 0, 64, 64, 1, 2);
-    drawChessMatrix(-100, -100, 16, 16, 15, 5);
+    drawChessMatrix(-150, -150, 32, 32, 10, 0, 20, 8);
 }

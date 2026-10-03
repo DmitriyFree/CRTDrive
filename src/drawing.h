@@ -16,7 +16,9 @@ void drawChessMatrix(
     int columns,
     int rows,
     int pixelSize,
-    int spacing
+    int spacing,
+    int delayUs,
+    int cellsize
 );
 
 void drawLine(int x1, int y1, int x2, int y2, int delayUs);
