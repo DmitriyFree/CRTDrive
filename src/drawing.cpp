@@ -716,3 +716,38 @@ void drawChessMatrix(
         }
     }
 }
+void drawChessMatrixAlpha(
+    int x,
+    int y,
+    int columns = 12,
+    int rows = 7,
+    int pixelSize = 20,
+    int spacing = 0,
+    int delayUs = 0,
+    int cellsize = 20
+){
+    for (int row = 0; row < rows; ++row)
+    {
+        for (int i = 0; i < columns; ++i)
+        {
+            // Alternate drawing direction per row
+            const int col = (row % 2 == 0)
+                ? i
+                : columns - 1 - i;
+
+            const int px = x + col * (pixelSize + spacing);
+            const int py = y + row * (pixelSize + spacing);
+            if(((row / cellsize) + (col / cellsize)) % 2)beamOn();
+            
+            drawLine(
+                px,
+                py,
+                px + pixelSize - 1,
+                py,
+                delayUs
+            );
+            delayMicroseconds(delayUs);
+            beamOff();
+        }
+    }
+}
