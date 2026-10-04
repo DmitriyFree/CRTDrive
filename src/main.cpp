@@ -2,6 +2,7 @@
 
 #include "hardware.h"
 #include "drawing.h"
+#include "image.h"
 
 constexpr int SHAPE_SIZE = 200;
 
@@ -45,5 +46,6 @@ void loop()
     //drawScrollingText("June is awesome! ", 0, 0, 10);
     //drawPixelMatrix(0, 0, 64, 64, 1, 2);
     //drawChessMatrixAlpha(-100, -100, 100, 100, 2, 0, 2, 10);
-    drawRotatingCube(20, 20, 150, 30);
+    //drawRotatingCube(20, 20, 150, 30);
+    drawBitmapAlpha(epd_bitmap_image, 50);
 }

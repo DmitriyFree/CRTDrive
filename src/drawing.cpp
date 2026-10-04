@@ -4,6 +4,7 @@
 
 #include <Arduino.h>
 #include <math.h>
+#include <pgmspace.h>
 
 // ============================================================
 // Configuration
@@ -39,6 +40,7 @@ void drawLine(
     while (true)
     {
         setPoint(x1, y1);
+        delayMicroseconds(delayUs);
 
         if (x1 == x2 && y1 == y2)
             break;
@@ -56,7 +58,7 @@ void drawLine(
             error += dx;
             y1 += sy;
         }
-        delayMicroseconds(delayUs);
+        
     }
 }
 
@@ -826,4 +828,36 @@ void drawRotatingCube(int cx, int cy, int size, int delayUs)
 
     if (angleX >= 2 * PI) angleX -= 2 * PI;
     if (angleY >= 2 * PI) angleY -= 2 * PI;
+}
+void drawBitmapAlpha(
+    const unsigned char* bitmap,
+    int delayUs = 0
+){
+    const int bytesPerRow = (100 + 7) / 8;
+
+    for (int row = 0; row < 100; ++row)
+    {
+        for (int i = 0; i < 100; ++i)
+        {
+            // Serpentine scan
+            const int col = (row % 2 == 0)
+                ? i
+                : 100 - 1 - i;
+
+            // Read pixel, MSB first
+            const int byteIndex = row * bytesPerRow + col / 8;
+            const unsigned char data = pgm_read_byte(&bitmap[byteIndex]);
+            const bool pixelOn = data > 128;
+            
+            if(pixelOn){
+                const int px = -50 + col;
+                const int py = -50 + row;
+                setPoint(px*2, py*2);
+                delayMicroseconds(40);
+                beamOn();
+                delayMicroseconds(col > 50 ? 10:2);
+                beamOff();
+            }
+        }
+    }
 }

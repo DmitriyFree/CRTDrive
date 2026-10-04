@@ -1,0 +1,42 @@
+#pragma once
+#include <Arduino.h>
+#include "SystemTypes.h"
+
+typedef void (*FrameCallback)(uint8_t*, uint16_t);
+typedef void (*TextCallback)(const String&);
+
+class SerialProtocol
+{
+public:
+    void begin(Stream& serial, FrameCallback fcb, TextCallback tcb, volatile DisplayMode* modePtr);
+    void update();
+
+private:
+    Stream* _serial;
+    FrameCallback _frameCallback;
+    TextCallback  _textCallback;
+
+    enum class RXState {
+        WAIT_HEADER1,
+        WAIT_HEADER2,
+        LEN_L,
+        LEN_H,
+        MODE,
+        DATA,
+        CHECKSUM
+    } state = RXState::WAIT_HEADER1;
+
+    static const uint8_t HEADER1 = 0xAA;
+    static const uint8_t HEADER2 = 0x55;
+
+    volatile DisplayMode* _mode;
+    uint16_t len = 0;
+    uint8_t  mode = 0;
+    uint8_t  checksum = 0;
+    uint16_t pos = 0;
+
+    uint8_t buffer[10000];
+
+    // NEW — text line buffer
+    String textLine;
+};
