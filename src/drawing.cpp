@@ -454,17 +454,15 @@ void drawAnalogClock(int hours, int minutes, int seconds)
         2 * PI * (seconds / 60.0f) - PI / 2
     };
 
-    const int lengths[] = {150, 200, 240};
+    const int lengths[] = {45, 60, 75};
 
     for (int i = 0; i < 3; ++i)
     {
         const int x = cx + lengths[i] * cosf(angles[i]);
         const int y = cy + lengths[i] * sinf(angles[i]);
 
-        drawLine(cx, cy, x, y);
-        delayMicroseconds(300);
-        drawLine(x, y, cx, cy);
-        delayMicroseconds(300); // Small delay to allow the beam to dwell on the line
+        drawLine(cx, cy, x, y, 10);
+        drawLine(x, y, cx, cy, 10);
     }
 }
 
@@ -853,7 +851,7 @@ void drawBitmapAlpha(
                 const int px = -50 + col;
                 const int py = -50 + row;
                 setPoint(px*2, py*2);
-                delayMicroseconds(40);
+                delayMicroseconds(50);
                 beamOn();
                 delayMicroseconds(col > 50 ? 10:2);
                 beamOff();

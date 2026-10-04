@@ -28,14 +28,14 @@ void loop()
     //showFigure(drawDiamond, SHAPE_SIZE);
 
     //CLOCKS
-    /*static unsigned long startTime = millis();
+    static unsigned long startTime = millis();
     const unsigned long elapsed = (millis() - startTime) / 10;
 
     const int hours   = (elapsed / 3600) % 24;
     const int minutes = (elapsed / 60) % 60;
     const int seconds = elapsed % 60;
 
-    drawClock(hours, minutes, seconds);*/
+    //drawClock(hours, minutes, seconds);
     //drawAnalogClock(hours, minutes, seconds);
     
 
@@ -43,7 +43,7 @@ void loop()
     //drawDwellChessRaster(SHAPE_SIZE);
 
     //drawText("23:59", -30, 0, 4); //okay
-    //drawScrollingText("June is awesome! ", 0, 0, 10);
+    //drawScrollingText("June is awesome! ", -30, -30, 10);
     //drawPixelMatrix(0, 0, 64, 64, 1, 2);
     //drawChessMatrixAlpha(-100, -100, 100, 100, 2, 0, 2, 10);
     //drawRotatingCube(20, 20, 150, 30);

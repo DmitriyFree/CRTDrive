@@ -27,7 +27,7 @@ constexpr int BEAM_ALPHA_B_PIN = 2;
 
 constexpr int POINT_DELAY_US = 0;
 
-constexpr int PWM_FREQUENCY = 40000;
+constexpr int PWM_FREQUENCY = 50000;
 constexpr int PWM_RESOLUTION = 8;
 
 
@@ -149,7 +149,7 @@ void setY(int y)
     else
     {
         // Keep a tiny current through zero.
-        fastPwmY(1);
+        fastPwmY(0);
     }
 }
 
@@ -162,8 +162,6 @@ void setPoint(int x, int y)
 {
     setX(x);
     setY(y);
-
-    waitPoint();
 }
 
 
@@ -185,13 +183,11 @@ void stopDeflection()
 void beamOn()
 {
     GPIO.out_w1ts = (1UL << BEAM_ALPHA_A_PIN); // 15 = HIGH
-    GPIO.out_w1tc = (1UL << BEAM_ALPHA_B_PIN); // 2  = LOW
 }
 
 void beamOff()
 {
     GPIO.out_w1tc = (1UL << BEAM_ALPHA_A_PIN); // 15 = LOW
-    GPIO.out_w1ts = (1UL << BEAM_ALPHA_B_PIN); // 2  = HIGH
 }
 
 
@@ -209,7 +205,6 @@ void hardwareInit()
 
     pinMode(DRIVER_SLEEP_PIN, OUTPUT);
     pinMode(BEAM_ALPHA_A_PIN, OUTPUT);
-    pinMode(BEAM_ALPHA_B_PIN, OUTPUT);
 
     // Keep drivers asleep during configuration.
     digitalWrite(DRIVER_SLEEP_PIN, LOW);
@@ -231,10 +226,6 @@ void hardwareInit()
 
     stopDeflection();
 
-    delay(1000);
-
     // Wake drivers.
     digitalWrite(DRIVER_SLEEP_PIN, HIGH);
-
-    delay(500);
 }
