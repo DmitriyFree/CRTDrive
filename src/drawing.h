@@ -30,7 +30,7 @@ void drawChessMatrixAlpha(
     int delayUs,
     int cellsize
 );
-void drawRotatingCube(int cx, int cy, int size);
+void drawRotatingCube(int cx, int cy, int size, int delayUs);
 
 void drawLine(int x1, int y1, int x2, int y2, int delayUs);
 

@@ -34,15 +34,16 @@ void loop()
     const int minutes = (elapsed / 60) % 60;
     const int seconds = elapsed % 60;
 
-    //drawClock(hours, minutes, seconds);*/
+    drawClock(hours, minutes, seconds);*/
     //drawAnalogClock(hours, minutes, seconds);
     
 
     // Dwell chess raster
     //drawDwellChessRaster(SHAPE_SIZE);
 
-    //drawText("he", 0, 0, 20); //okay
-    //drawScrollingText("June is awesome! ", 0, 0, 20);
+    //drawText("23:59", -30, 0, 4); //okay
+    //drawScrollingText("June is awesome! ", 0, 0, 10);
     //drawPixelMatrix(0, 0, 64, 64, 1, 2);
-    drawChessMatrixAlpha(-100, -100, 100, 100, 2, 0, 2, 33);
+    //drawChessMatrixAlpha(-100, -100, 100, 100, 2, 0, 2, 10);
+    drawRotatingCube(20, 20, 150, 30);
 }

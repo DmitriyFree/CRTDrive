@@ -752,7 +752,7 @@ void drawChessMatrixAlpha(
     }
 }
 
-void drawRotatingCube(int cx, int cy, int size)
+void drawRotatingCube(int cx, int cy, int size, int delayUs)
 {
     static float angleX = 0;
     static float angleY = 0;
@@ -815,7 +815,8 @@ void drawRotatingCube(int cx, int cy, int size)
             (int)projected[a][0],
             (int)projected[a][1],
             (int)projected[b][0],
-            (int)projected[b][1]
+            (int)projected[b][1],
+            delayUs
         );
     }
 
