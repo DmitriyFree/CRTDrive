@@ -751,3 +751,78 @@ void drawChessMatrixAlpha(
         }
     }
 }
+
+void drawRotatingCube(int cx, int cy, int size)
+{
+    static float angleX = 0;
+    static float angleY = 0;
+
+    // 8 vertices of a cube, centered at origin
+    const float vertices[8][3] = {
+        {-1, -1, -1},
+        { 1, -1, -1},
+        { 1,  1, -1},
+        {-1,  1, -1},
+        {-1, -1,  1},
+        { 1, -1,  1},
+        { 1,  1,  1},
+        {-1,  1,  1}
+    };
+
+    // 12 edges connecting the vertices
+    const int edges[12][2] = {
+        {0,1}, {1,2}, {2,3}, {3,0},
+        {4,5}, {5,6}, {6,7}, {7,4},
+        {0,4}, {1,5}, {2,6}, {3,7}
+    };
+
+    float projected[8][2];
+
+    const float cosX = cosf(angleX);
+    const float sinX = sinf(angleX);
+    const float cosY = cosf(angleY);
+    const float sinY = sinf(angleY);
+
+    for (int i = 0; i < 8; ++i)
+    {
+        float x = vertices[i][0];
+        float y = vertices[i][1];
+        float z = vertices[i][2];
+
+        // Rotate around X
+        float y1 = y * cosX - z * sinX;
+        float z1 = y * sinX + z * cosX;
+
+        // Rotate around Y
+        float x2 = x * cosY + z1 * sinY;
+        float z2 = -x * sinY + z1 * cosY;
+
+        // Perspective projection
+        const float cameraDistance = 4.0f;
+        const float perspective = 1.0f / (cameraDistance + z2);
+
+        projected[i][0] = cx + x2 * size * perspective;
+        projected[i][1] = cy + y1 * size * perspective;
+    }
+
+    // Draw all edges
+    for (int i = 0; i < 12; ++i)
+    {
+        int a = edges[i][0];
+        int b = edges[i][1];
+
+        drawLine(
+            (int)projected[a][0],
+            (int)projected[a][1],
+            (int)projected[b][0],
+            (int)projected[b][1]
+        );
+    }
+
+    // Advance rotation
+    angleX += 0.025f;
+    angleY += 0.018f;
+
+    if (angleX >= 2 * PI) angleX -= 2 * PI;
+    if (angleY >= 2 * PI) angleY -= 2 * PI;
+}
