@@ -8,7 +8,7 @@
 
 // CRT scan configuration
 static constexpr int SETTLE_US = 10;
-static constexpr int DWELL_STEP_US = 1;
+static constexpr int DWELL_STEP_US = 5;
 static constexpr int SCAN_TASK_STACK = 4096;
 static constexpr int SCAN_TASK_PRIORITY = 3;
 
@@ -27,7 +27,7 @@ static volatile bool running = false;
 // 0, 2, 4, 6, 8, 10 micros
 static inline int pixelDwellUs(uint8_t pixel)
 {
-    const int level = pixel >> 7; // 128; 2 colors
+    const int level = pixel >> 6; // 64; 4 colors
     return level * DWELL_STEP_US;
 }
 
