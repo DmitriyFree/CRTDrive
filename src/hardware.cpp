@@ -15,7 +15,7 @@ constexpr int X_DIR_PIN = 17;
 constexpr int Y_PWM_PIN = 18;
 constexpr int Y_DIR_PIN = 19;
 
-constexpr int DRIVER_SLEEP_PIN = 3;
+constexpr int DRIVER_SLEEP_PIN = 5;
 
 constexpr int BEAM_ALPHA_A_PIN = 15;
 

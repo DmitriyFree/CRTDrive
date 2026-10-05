@@ -135,13 +135,7 @@ public static class ImageProcessor
             for (int x = 0; x < outW; x++)
             {
                 int srcX = x * midW / outW;
-
                 byte val = quantize(gray[srcY, srcX]);
-
-                // border rule (centralized)
-                if (x > 97 || x < 2 || y < 2 || y > 97)
-                    val = (byte)(quantize(255));
-
                 result[y, x] = val;
             }
         }

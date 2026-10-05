@@ -18,7 +18,7 @@ public class Esp32ImageSender : IDisposable
     private FrameMode _currentMode;
 
     private readonly Timer _ackWatchdog;
-    private const int ACK_TIMEOUT_MS = 67; // ~1/15 sec
+    private const int ACK_TIMEOUT_MS = 200;//67; // ~1/15 sec
 
     private enum FrameMode : byte
     {
@@ -26,7 +26,7 @@ public class Esp32ImageSender : IDisposable
         Bit8Raw = 1
     }
 
-    public Esp32ImageSender(int baud = 4000000)
+    public Esp32ImageSender(int baud = 3000000)
     {
         _ackWatchdog = new Timer(OnAckTimeout);
 
@@ -58,6 +58,7 @@ public class Esp32ImageSender : IDisposable
                 };
 
                 testPort.Open();
+                
 
                 if (!testPort.IsOpen) continue;
 
@@ -79,23 +80,6 @@ public class Esp32ImageSender : IDisposable
     // =========================
     // PUBLIC API
     // =========================
-
-    public void SendImage1Bit(byte[,] pixels)
-    {
-        if (_port == null || !_port.IsOpen) return;
-
-        var packed = PackForDisplay(pixels);
-
-        lock (_lock)
-        {
-            if (IsDuplicate(packed)) return;
-
-            _currentMode = FrameMode.Bit1Packed;
-            _latestFrame = packed;
-
-            TrySend();
-        }
-    }
 
     public void SendImage8Bit(byte[,] pixels)
     {
@@ -137,6 +121,7 @@ public class Esp32ImageSender : IDisposable
         try
         {
             _port.Write(frame, 0, frame.Length);
+            Console.WriteLine("Frame sent!");
             _ackWatchdog.Change(ACK_TIMEOUT_MS, Timeout.Infinite);
         }
         catch
@@ -152,36 +137,51 @@ public class Esp32ImageSender : IDisposable
     // ACK HANDLING
     // =========================
 
-    private void OnDataReceived(object sender, SerialDataReceivedEventArgs e)
+   private void OnDataReceived(object sender, SerialDataReceivedEventArgs e)
     {
-        if (_port == null || !_port.IsOpen) return;
+        if (_port == null || !_port.IsOpen)
+            return;
 
         try
         {
             while (_port.BytesToRead > 0)
             {
-                if (_port.ReadByte() != 'k') continue;
+                int b = _port.ReadByte();
+
+                if (b != 'k')
+                    continue;
 
                 lock (_lock)
                 {
-                    _ackWatchdog.Change(Timeout.Infinite, Timeout.Infinite);
-                    _ready = true;
+                    Console.WriteLine("ACK!");
 
+                    _ackWatchdog.Change(
+                        Timeout.Infinite,
+                        Timeout.Infinite
+                    );
+
+                    _ready = true;
                     TrySend();
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Serial RX error: {ex.Message}");
+        }
     }
 
     private void OnAckTimeout(object? state)
     {
         lock (_lock)
         {
-            if (_ready) return; // already ACKed
+            if (_ready)
+                return;
 
+            Console.WriteLine("ACK TIMEOUT");
+
+            // Don't resend automatically.
             _ready = true;
-            TrySend();
         }
     }
 
@@ -218,53 +218,6 @@ public class Esp32ImageSender : IDisposable
         for (int y = 0; y < h; y++)
             for (int x = 0; x < w; x++)
                 result[idx++] = px[y, x];
-
-        return result;
-    }
-
-    // =========================
-    // PACKING (UNCHANGED)
-    // =========================
-
-    private static byte[] PackForDisplay(byte[,] px)
-    {
-        const int packedSize = 1000;
-        const int directRowsCount = 30;
-        const int width = 100;
-
-        byte[] result = new byte[packedSize + directRowsCount * width];
-        int idx = 0;
-
-        for (int col = 0; col < 100; col++)
-        {
-            for (int s = 0; s < 10; s++)
-            {
-                int baseRow = s * 10 + 2;
-
-                byte v =
-                    (byte)(
-                        (px[baseRow + 0, col] << 5) |
-                        (px[baseRow + 1, col]) |
-                        (px[baseRow + 2, col] << 4) |
-                        (px[baseRow + 3, col] << 3) |
-                        (px[baseRow + 4, col] << 2) |
-                        (px[baseRow + 5, col] << 1) |
-                        (px[baseRow + 6, col] << 6)
-                    );
-
-                result[999 - idx++] = v;
-            }
-        }
-
-        int[] directRows =
-        [
-            0,1,9,10,11,19,20,21,29,30,31,39,40,41,49,50,51,
-            59,60,61,69,70,71,79,80,81,89,90,91,99
-        ];
-
-        foreach (var row in directRows)
-            for (int col = 0; col < 100; col++)
-                result[idx++] = px[row, 99 - col];
 
         return result;
     }

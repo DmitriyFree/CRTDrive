@@ -21,7 +21,7 @@ void onFrameReceived(uint8_t* buf, uint16_t len)
 void setup()
 {
     Serial.setRxBufferSize(10100);
-    Serial.begin(4000000);
+    Serial.begin(3000000);
 
     hardwareInit();
     videoInit();
@@ -37,9 +37,7 @@ void setup()
 }
 
 // ================= LOOP =================
-
 void loop()
 {
     SerialProto.update();
-    vTaskDelay(1);
 }

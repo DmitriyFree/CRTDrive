@@ -10,7 +10,7 @@
 static constexpr int SETTLE_US = 30;
 static constexpr int MAX_DWELL_US = 10;
 static constexpr int SCAN_TASK_STACK = 4096;
-static constexpr int SCAN_TASK_PRIORITY = 1;
+static constexpr int SCAN_TASK_PRIORITY = 3;
 
 // Two grayscale frame buffers
 static uint8_t frames[2][VIDEO_FRAME_SIZE];
@@ -51,7 +51,7 @@ static void scanFrame(const uint8_t* frame)
             const int x = (-50 + col) * 2;
             const int y = (-50 + row) * 2;
 
-            setPoint(x, y);
+            setPoint(x, -y);//y is flipped in hardware
             delayMicroseconds(SETTLE_US);
 
             beamOn();
@@ -96,7 +96,6 @@ void videoInit()
     frameMutex = xSemaphoreCreateMutex();
 
     memset(frames, 255, sizeof(frames));
-    //frames[0][50 * VIDEO_WIDTH + 50] = 255;
 
     activeBuffer = 0;
     pendingBuffer = 1;

@@ -7,7 +7,6 @@ using System;
 using System.Threading;
 using Avalonia;
 using Avalonia.Media.Imaging;
-using System;
 using System.Threading.Tasks;
 
 namespace CrtDrive;
