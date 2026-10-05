@@ -18,14 +18,11 @@ constexpr int Y_DIR_PIN = 19;
 constexpr int DRIVER_SLEEP_PIN = 3;
 
 constexpr int BEAM_ALPHA_A_PIN = 15;
-constexpr int BEAM_ALPHA_B_PIN = 2;
 
 
 // ============================================================
 // Configuration
 // ============================================================
-
-constexpr int POINT_DELAY_US = 0;
 
 constexpr int PWM_FREQUENCY = 50000;
 constexpr int PWM_RESOLUTION = 8;
@@ -71,16 +68,6 @@ inline void fastPwmY(int duty)
 
 int currentXDirection = 1;
 int currentYDirection = 1;
-
-
-// ============================================================
-// Point timing
-// ============================================================
-
-void waitPoint()
-{
-    delayMicroseconds(POINT_DELAY_US);
-}
 
 
 // ============================================================

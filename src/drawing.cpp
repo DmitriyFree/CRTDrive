@@ -147,7 +147,6 @@ void drawFilledSquare(int size)
             for (int x = -size; x <= size; ++x)
             {
                 setX(x);
-                waitPoint();
             }
         }
         else
@@ -155,7 +154,6 @@ void drawFilledSquare(int size)
             for (int x = size; x >= -size; --x)
             {
                 setX(x);
-                waitPoint();
             }
         }
 
@@ -851,9 +849,9 @@ void drawBitmapAlpha(
                 const int px = -50 + col;
                 const int py = -50 + row;
                 setPoint(px*2, py*2);
-                delayMicroseconds(50);
+                delayMicroseconds(50);//this time required to position beam reliably
                 beamOn();
-                delayMicroseconds(col > 50 ? 10:2);
+                delayMicroseconds(col > 50 ? 10:2);//this thing makes 2 levels of brightness, we can make it 8 or something
                 beamOff();
             }
         }

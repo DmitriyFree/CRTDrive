@@ -10,5 +10,3 @@ void stopDeflection();
 
 void beamOn();
 void beamOff();
-
-void waitPoint();

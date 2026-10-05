@@ -1,51 +1,44 @@
 #include <Arduino.h>
 
+#include "SystemTypes.h"
 #include "hardware.h"
-#include "drawing.h"
-#include "image.h"
+#include "SerialProtocol.h"
+#include "VideoDriver.h"
 
-constexpr int SHAPE_SIZE = 200;
+// ================= SERIAL =================
+
+SerialProtocol SerialProto;
+volatile DisplayMode mode = MODE_GRAPHICS;
+
+void onFrameReceived(uint8_t* buf, uint16_t len)
+{
+    videoSubmitFrame(buf, len);
+}
+
+// ================= SETUP =================
 
 void setup()
 {
-    hardwareInit();
+    Serial.setRxBufferSize(10100);
+    Serial.begin(4000000);
 
-    
+    hardwareInit();
+    videoInit();
+
+    SerialProto.begin(
+        Serial,
+        onFrameReceived,
+        nullptr,
+        &mode
+    );
+
+    videoStart();
 }
+
+// ================= LOOP =================
 
 void loop()
 {
-    //showFigure(drawSquare, SHAPE_SIZE);
-    //showFigure(drawTriangle, SHAPE_SIZE);
-    //showFigure(drawCircle, SHAPE_SIZE);
-    //showFilledSquare(SHAPE_SIZE);
-
-    //showChessRaster(300);
-
-    //showConcentricCircles();
-    //showFigure(drawCross, SHAPE_SIZE);
-    //showFigure(drawDiagonalCross, SHAPE_SIZE);
-    //showFigure(drawDiamond, SHAPE_SIZE);
-
-    //CLOCKS
-    static unsigned long startTime = millis();
-    const unsigned long elapsed = (millis() - startTime) / 10;
-
-    const int hours   = (elapsed / 3600) % 24;
-    const int minutes = (elapsed / 60) % 60;
-    const int seconds = elapsed % 60;
-
-    //drawClock(hours, minutes, seconds);
-    //drawAnalogClock(hours, minutes, seconds);
-    
-
-    // Dwell chess raster
-    //drawDwellChessRaster(SHAPE_SIZE);
-
-    //drawText("23:59", -30, 0, 4); //okay
-    //drawScrollingText("June is awesome! ", -30, -30, 10);
-    //drawPixelMatrix(0, 0, 64, 64, 1, 2);
-    //drawChessMatrixAlpha(-100, -100, 100, 100, 2, 0, 2, 10);
-    //drawRotatingCube(20, 20, 150, 30);
-    drawBitmapAlpha(epd_bitmap_image, 50);
+    SerialProto.update();
+    vTaskDelay(1);
 }
