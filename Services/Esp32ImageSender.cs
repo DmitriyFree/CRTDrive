@@ -18,7 +18,7 @@ public class Esp32ImageSender : IDisposable
     private FrameMode _currentMode;
 
     private readonly Timer _ackWatchdog;
-    private const int ACK_TIMEOUT_MS = 200;//67; // ~1/15 sec
+    private const int ACK_TIMEOUT_MS = 1000;//67; // ~1/15 sec
 
     private enum FrameMode : byte
     {

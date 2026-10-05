@@ -24,7 +24,7 @@ constexpr int BEAM_ALPHA_A_PIN = 15;
 // Configuration
 // ============================================================
 
-constexpr int PWM_FREQUENCY = 50000;
+constexpr int PWM_FREQUENCY = 35000;
 constexpr int PWM_RESOLUTION = 8;
 
 

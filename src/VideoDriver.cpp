@@ -7,8 +7,8 @@
 #include <freertos/semphr.h>
 
 // CRT scan configuration
-static constexpr int SETTLE_US = 30;
-static constexpr int MAX_DWELL_US = 10;
+static constexpr int SETTLE_US = 10;
+static constexpr int DWELL_STEP_US = 1;
 static constexpr int SCAN_TASK_STACK = 4096;
 static constexpr int SCAN_TASK_PRIORITY = 3;
 
@@ -27,8 +27,8 @@ static volatile bool running = false;
 // 0, 2, 4, 6, 8, 10 micros
 static inline int pixelDwellUs(uint8_t pixel)
 {
-    const int level = (pixel * 5 + 127) / 255;
-    return level * 2;
+    const int level = pixel >> 7; // 128; 2 colors
+    return level * DWELL_STEP_US;
 }
 
 static void scanFrame(const uint8_t* frame)
@@ -41,7 +41,9 @@ static void scanFrame(const uint8_t* frame)
                 ? i
                 : VIDEO_WIDTH - 1 - i;
 
-            const uint8_t pixel = frame[row * VIDEO_WIDTH + col];
+            const int sourceRow = VIDEO_HEIGHT - 1 - row;
+            const uint8_t pixel =
+                frame[sourceRow * VIDEO_WIDTH + col];
 
             // Skip black and values quantized to level zero
             const int dwellUs = pixelDwellUs(pixel);
@@ -51,9 +53,8 @@ static void scanFrame(const uint8_t* frame)
             const int x = (-50 + col) * 2;
             const int y = (-50 + row) * 2;
 
-            setPoint(x, -y);//y is flipped in hardware
+            setPoint(x, y);
             delayMicroseconds(SETTLE_US);
-
             beamOn();
             delayMicroseconds(dwellUs);
             beamOff();

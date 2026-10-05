@@ -9,18 +9,15 @@ void SerialProtocol::begin(Stream& serial, FrameCallback fcb, TextCallback tcb, 
 
 void SerialProtocol::update()
 {
-    int budget = 512;
-
-    while (_serial->available() && budget-- > 0)
+    while (_serial->available())
     {
         uint8_t b = _serial->read();
+
         switch (state)
         {
-            // ====================================================
-            // IDLE / TEXT MODE HANDLING
-            // ====================================================
             case RXState::WAIT_HEADER1:
-                if (b == HEADER1){
+                if (b == HEADER1)
+                {
                     state = RXState::WAIT_HEADER2;
                 }
                 break;
@@ -43,7 +40,16 @@ void SerialProtocol::update()
 
             case RXState::LEN_H:
                 len |= (b << 8);
-                state = RXState::MODE;
+
+                // Reject impossible packets.
+                if (len > sizeof(buffer))
+                {
+                    state = RXState::WAIT_HEADER1;
+                }
+                else
+                {
+                    state = RXState::MODE;
+                }
                 break;
 
             case RXState::MODE:
@@ -54,12 +60,7 @@ void SerialProtocol::update()
                 break;
 
             case RXState::DATA:
-                if (pos < sizeof(buffer))
-                {
-                    buffer[pos] = b;
-                }
-
-                pos++;
+                buffer[pos++] = b;
                 checksum ^= b;
 
                 if (pos >= len)
@@ -68,14 +69,18 @@ void SerialProtocol::update()
                 break;
 
             case RXState::CHECKSUM:
+            {
                 if (checksum == b && _frameCallback)
                 {
-                    _frameCallback(buffer, len);
+                    // ACK immediately after successful reception.
                     _serial->write("k", 1);
+
+                    _frameCallback(buffer, len);
                 }
 
                 state = RXState::WAIT_HEADER1;
                 break;
+            }
         }
     }
 }
