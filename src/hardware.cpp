@@ -187,6 +187,8 @@ void hardwareInit()
     pinMode(X_PWM_PIN, OUTPUT);
     pinMode(X_DIR_PIN, OUTPUT);
 
+    pinMode(2, OUTPUT);//led
+
     pinMode(Y_PWM_PIN, OUTPUT);
     pinMode(Y_DIR_PIN, OUTPUT);
 

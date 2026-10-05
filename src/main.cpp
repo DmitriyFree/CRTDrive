@@ -12,6 +12,7 @@ volatile DisplayMode mode = MODE_GRAPHICS;
 
 void onFrameReceived(uint8_t* buf, uint16_t len)
 {
+    digitalWrite(2, !digitalRead(2));
     videoSubmitFrame(buf, len);
 }
 

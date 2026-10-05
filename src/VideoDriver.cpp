@@ -7,10 +7,10 @@
 #include <freertos/semphr.h>
 
 // CRT scan configuration
-static constexpr int SETTLE_US = 50;
+static constexpr int SETTLE_US = 30;
 static constexpr int MAX_DWELL_US = 10;
 static constexpr int SCAN_TASK_STACK = 4096;
-static constexpr int SCAN_TASK_PRIORITY = 3;
+static constexpr int SCAN_TASK_PRIORITY = 1;
 
 // Two grayscale frame buffers
 static uint8_t frames[2][VIDEO_FRAME_SIZE];
@@ -24,11 +24,11 @@ static TaskHandle_t scanTaskHandle = nullptr;
 static volatile bool running = false;
 
 // Map grayscale to six levels:
-// 0, 2, 4, 6, 8, 10 ms
+// 0, 2, 4, 6, 8, 10 micros
 static inline int pixelDwellUs(uint8_t pixel)
 {
     const int level = (pixel * 5 + 127) / 255;
-    return level * 2000;
+    return level * 2;
 }
 
 static void scanFrame(const uint8_t* frame)
@@ -51,7 +51,6 @@ static void scanFrame(const uint8_t* frame)
             const int x = (-50 + col) * 2;
             const int y = (-50 + row) * 2;
 
-            beamOff();
             setPoint(x, y);
             delayMicroseconds(SETTLE_US);
 
@@ -60,8 +59,6 @@ static void scanFrame(const uint8_t* frame)
             beamOff();
         }
     }
-
-    beamOff();
 }
 
 static void videoScanTask(void*)
@@ -70,12 +67,10 @@ static void videoScanTask(void*)
     {
         if (!running)
         {
-            beamOff();
-            vTaskDelay(pdMS_TO_TICKS(10));
+            vTaskDelay(1);
             continue;
         }
 
-        // Switch frames only at the start of a complete scan.
         xSemaphoreTake(frameMutex, portMAX_DELAY);
 
         if (hasPendingFrame)
@@ -90,6 +85,9 @@ static void videoScanTask(void*)
         xSemaphoreGive(frameMutex);
 
         scanFrame(frame);
+
+        // Give FreeRTOS/idle task a chance to run.
+        vTaskDelay(1);
     }
 }
 
@@ -97,7 +95,8 @@ void videoInit()
 {
     frameMutex = xSemaphoreCreateMutex();
 
-    memset(frames, 0, sizeof(frames));
+    memset(frames, 255, sizeof(frames));
+    //frames[0][50 * VIDEO_WIDTH + 50] = 255;
 
     activeBuffer = 0;
     pendingBuffer = 1;
