@@ -1,24 +1,22 @@
 #include <Arduino.h>
 
-#include "SystemTypes.h"
+#include "common.h"
 #include "hardware.h"
 #include "SerialProtocol.h"
 #include "VideoDriver.h"
 
-// ================= SERIAL =================
-
 SerialProtocol SerialProto;
-volatile DisplayMode mode = MODE_GRAPHICS;
-
-static constexpr int SERIAL_TASK_STACK = 4096;
-static constexpr int SERIAL_TASK_PRIORITY = 3;
-
-static TaskHandle_t serialTaskHandle = nullptr;
 
 void onFrameReceived(uint8_t* buf, uint16_t len)
 {
     digitalWrite(2, !digitalRead(2));
-    videoSubmitFrame(buf, len);
+    for (int i = 0; i < VIDEO_PIXELS; i++)
+    {
+        uint8_t packed = buf[i >> 2];
+        uint8_t value = (packed >> ((i & 3) * 2)) & 0x03;
+
+        unpackedFrame[i] = value * 85;
+    }
 }
 
 static void serialTask(void*)
@@ -26,8 +24,6 @@ static void serialTask(void*)
     while (true)
     {
         SerialProto.update();
-
-        // Let other core-1 tasks run if there is currently no data.
         vTaskDelay(1);
     }
 }
@@ -44,9 +40,7 @@ void setup()
 
     SerialProto.begin(
         Serial,
-        onFrameReceived,
-        nullptr,
-        &mode
+        onFrameReceived
     );
 
     // CRT scanning → core 0
@@ -59,8 +53,8 @@ void setup()
         SERIAL_TASK_STACK,
         nullptr,
         SERIAL_TASK_PRIORITY,
-        &serialTaskHandle,
-        1
+        nullptr,
+        0
     );
 }
 
@@ -69,5 +63,5 @@ void setup()
 void loop()
 {
     // Everything is handled by dedicated tasks.
-    vTaskDelay(1000);
+    //vTaskDelay(1000);
 }

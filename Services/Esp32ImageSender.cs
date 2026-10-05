@@ -23,7 +23,8 @@ public class Esp32ImageSender : IDisposable
     private enum FrameMode : byte
     {
         Bit1Packed = 0,
-        Bit8Raw = 1
+        Bit8Raw = 1,
+        Bit2Packed = 2
     }
 
     public Esp32ImageSender(int baud = 3000000)
@@ -96,6 +97,58 @@ public class Esp32ImageSender : IDisposable
 
             TrySend();
         }
+    }
+    public void SendImage2Bit(byte[,] pixels)
+    {
+        if (_port == null || !_port.IsOpen) return;
+
+        var packed = Pack2Bit(pixels);
+
+        lock (_lock)
+        {
+            if (IsDuplicate(packed)) return;
+
+            _currentMode = FrameMode.Bit2Packed;
+            _latestFrame = packed;
+
+            TrySend();
+        }
+    }
+        private static byte[] Pack2Bit(byte[,] px)
+    {
+        int h = px.GetLength(0);
+        int w = px.GetLength(1);
+
+        int pixelCount = w * h;
+        int byteCount = (pixelCount + 3) >> 2;
+
+        var result = new byte[byteCount];
+
+        int pixel = 0;
+
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                byte v = px[y, x];
+
+                // 8-bit grayscale -> 2-bit grayscale
+                // 0   -> 0
+                // 85  -> 1
+                // 170 -> 2
+                // 255 -> 3
+                int q = v >> 6;
+
+                int byteIndex = pixel >> 2;
+                int shift = (pixel & 3) * 2;
+
+                result[byteIndex] |= (byte)(q << shift);
+
+                pixel++;
+            }
+        }
+
+        return result;
     }
 
     // =========================

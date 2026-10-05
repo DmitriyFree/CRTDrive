@@ -1,131 +1,85 @@
-
 #include "VideoDriver.h"
 #include "hardware.h"
-
+#include "common.h"
+#include <Arduino.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-#include <freertos/semphr.h>
 
-// CRT scan configuration
-static constexpr int SETTLE_US = 10;
-static constexpr int DWELL_STEP_US = 5;
-static constexpr int SCAN_TASK_STACK = 4096;
-static constexpr int SCAN_TASK_PRIORITY = 3;
-
-// Two grayscale frame buffers
-static uint8_t frames[2][VIDEO_FRAME_SIZE];
-
-static int activeBuffer = 0;
-static int pendingBuffer = 1;
-static bool hasPendingFrame = false;
-
-static SemaphoreHandle_t frameMutex = nullptr;
 static TaskHandle_t scanTaskHandle = nullptr;
-static volatile bool running = false;
+static int16_t xPosition[VIDEO_WIDTH];
+static int16_t yPosition[VIDEO_HEIGHT];
+static uint16_t sourceRowOffset[VIDEO_HEIGHT];
+static uint8_t dwellTable[256];
 
-// Map grayscale to six levels:
-// 0, 2, 4, 6, 8, 10 micros
-static inline int pixelDwellUs(uint8_t pixel)
+static void buildTables()
 {
-    const int level = pixel >> 6; // 64; 4 colors
-    return level * DWELL_STEP_US;
-}
+    for (int i = 0; i < 256; ++i)
+        dwellTable[i] = (i >> 6) * DWELL_STEP_US;
 
+    for (int col = 0; col < VIDEO_WIDTH; ++col)
+        xPosition[col] = (-50 + col) * 2;
+
+    for (int row = 0; row < VIDEO_HEIGHT; ++row)
+    {
+        yPosition[row] = (-50 + row) * 2;
+
+        sourceRowOffset[row] =
+            (VIDEO_HEIGHT - 1 - row) * VIDEO_WIDTH;
+    }
+}
 static void scanFrame(const uint8_t* frame)
 {
     for (int row = 0; row < VIDEO_HEIGHT; ++row)
     {
+        const uint8_t* src =
+            frame + sourceRowOffset[row];
+
+        const bool reverse = row & 1;
+
         for (int i = 0; i < VIDEO_WIDTH; ++i)
         {
-            const int col = (row % 2 == 0)
-                ? i
-                : VIDEO_WIDTH - 1 - i;
+            // Serpentine scan.
+            const int col =
+                reverse
+                    ? VIDEO_WIDTH - 1 - i
+                    : i;
 
-            const int sourceRow = VIDEO_HEIGHT - 1 - row;
-            const uint8_t pixel =
-                frame[sourceRow * VIDEO_WIDTH + col];
+            const uint8_t pixel = src[col];
+            const uint8_t dwell = dwellTable[pixel];
 
-            // Skip black and values quantized to level zero
-            const int dwellUs = pixelDwellUs(pixel);
-            if (dwellUs == 0)
+            if (dwell == 0)
                 continue;
 
-            const int x = (-50 + col) * 2;
-            const int y = (-50 + row) * 2;
+            setPoint(
+                xPosition[col],
+                yPosition[row]
+            );
 
-            setPoint(x, y);
             delayMicroseconds(SETTLE_US);
+
             beamOn();
-            delayMicroseconds(dwellUs);
+            delayMicroseconds(dwell);
             beamOff();
         }
+
+        // Give core 0's FreeRTOS tasks a chance to run.
+        if ((row + 1) % ROWS_PER_YIELD == 0)
+            vTaskDelay(1);
     }
 }
-
 static void videoScanTask(void*)
 {
     while (true)
     {
-        if (!running)
-        {
-            vTaskDelay(1);
-            continue;
-        }
-
-        xSemaphoreTake(frameMutex, portMAX_DELAY);
-
-        if (hasPendingFrame)
-        {
-            activeBuffer = pendingBuffer;
-            pendingBuffer = 1 - activeBuffer;
-            hasPendingFrame = false;
-        }
-
-        const uint8_t* frame = frames[activeBuffer];
-
-        xSemaphoreGive(frameMutex);
-
-        scanFrame(frame);
-
-        // Give FreeRTOS/idle task a chance to run.
-        vTaskDelay(1);
+        scanFrame(unpackedFrame);
     }
 }
-
 void videoInit()
 {
-    frameMutex = xSemaphoreCreateMutex();
-
-    memset(frames, 255, sizeof(frames));
-
-    activeBuffer = 0;
-    pendingBuffer = 1;
-    hasPendingFrame = false;
-    running = false;
+    buildTables();
 }
-
-bool videoSubmitFrame(const uint8_t* frame, size_t length)
-{
-    if (!frame || length != VIDEO_FRAME_SIZE || !frameMutex)
-        return false;
-
-    xSemaphoreTake(frameMutex, portMAX_DELAY);
-
-    // The active buffer is never written while being scanned.
-    memcpy(frames[pendingBuffer], frame, VIDEO_FRAME_SIZE);
-    hasPendingFrame = true;
-
-    xSemaphoreGive(frameMutex);
-    return true;
-}
-
 void videoStart()
 {
-    if (scanTaskHandle)
-        return;
-
-    running = true;
-
     xTaskCreatePinnedToCore(
         videoScanTask,
         "videoScan",
@@ -133,12 +87,6 @@ void videoStart()
         nullptr,
         SCAN_TASK_PRIORITY,
         &scanTaskHandle,
-        0
+        1
     );
-}
-
-void videoStop()
-{
-    running = false;
-    beamOff();
 }
