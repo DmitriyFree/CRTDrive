@@ -161,10 +161,6 @@ public class Esp32ImageSender : IDisposable
     {
         if (_port == null || !_port.IsOpen) return;
         if (_latestFrame == null || !_ready) return;
-        
-        Console.WriteLine(
-            $"Sending mode={_currentMode}, payload={_latestFrame.Length} bytes"
-        );
 
         var frame = BuildFrame(_latestFrame, _currentMode);
 
@@ -174,7 +170,6 @@ public class Esp32ImageSender : IDisposable
         try
         {
             _port.Write(frame, 0, frame.Length);
-            Console.WriteLine("Frame sent!");
             _ackWatchdog.Change(ACK_TIMEOUT_MS, Timeout.Infinite);
         }
         catch
@@ -206,8 +201,6 @@ public class Esp32ImageSender : IDisposable
 
                 lock (_lock)
                 {
-                    Console.WriteLine("ACK!");
-
                     _ackWatchdog.Change(
                         Timeout.Infinite,
                         Timeout.Infinite

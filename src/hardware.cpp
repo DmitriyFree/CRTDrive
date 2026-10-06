@@ -1,32 +1,10 @@
 #include "hardware.h"
 
 #include <Arduino.h>
+#include "common.h"
 #include "soc/gpio_struct.h"
 #include "soc/ledc_reg.h"
 #include "soc/ledc_struct.h"
-
-// ============================================================
-// Hardware
-// ============================================================
-
-constexpr int X_PWM_PIN = 16;
-constexpr int X_DIR_PIN = 17;
-
-constexpr int Y_PWM_PIN = 18;
-constexpr int Y_DIR_PIN = 19;
-
-constexpr int DRIVER_SLEEP_PIN = 5;
-
-constexpr int BEAM_ALPHA_A_PIN = 15;
-
-
-// ============================================================
-// Configuration
-// ============================================================
-
-constexpr int PWM_FREQUENCY = 35000;
-constexpr int PWM_RESOLUTION = 8;
-
 
 // ============================================================
 // Fast GPIO
