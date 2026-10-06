@@ -2,11 +2,9 @@ using Avalonia.Controls;
 using Avalonia.Threading;
 using CrtDrive.Services;
 using Avalonia.Media.Imaging;
-using Avalonia.Interactivity;
 using System;
 using System.Threading;
 using Avalonia;
-using Avalonia.Media.Imaging;
 using System.Threading.Tasks;
 
 namespace CrtDrive;

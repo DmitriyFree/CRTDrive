@@ -26,6 +26,8 @@ static void buildTables()
 }
 static void scanFrame(const uint8_t* frame)
 {
+    bool beamIsOn = false;
+
     for (int row = 0; row < VIDEO_HEIGHT; ++row)
     {
         const uint8_t* src =
@@ -35,17 +37,37 @@ static void scanFrame(const uint8_t* frame)
 
         for (int i = 0; i < VIDEO_WIDTH; ++i)
         {
-            // Serpentine scan.
             const int col =
                 reverse
                     ? VIDEO_WIDTH - 1 - i
                     : i;
 
-            const uint8_t pixel = src[col];
-            const uint8_t dwell = pixel >> 6;
+            const uint8_t dwell = src[col] >> 6;
 
             if (dwell == 0)
+            {
+                // Explicitly blank while traveling.
+                if (beamIsOn)
+                {
+                    beamOff();
+                    beamIsOn = false;
+                }
+
+                setPoint(
+                    xPosition[col],
+                    yPosition[row]
+                );
+
                 continue;
+            }
+
+            // Make absolutely sure the beam is off
+            // before positioning at a lit pixel.
+            if (beamIsOn)
+            {
+                beamOff();
+                beamIsOn = false;
+            }
 
             setPoint(
                 xPosition[col],
@@ -55,11 +77,14 @@ static void scanFrame(const uint8_t* frame)
             delayMicroseconds(SETTLE_US);
 
             beamOn();
+            beamIsOn = true;
+
             delayMicroseconds(dwell);
+
             beamOff();
+            beamIsOn = false;
         }
 
-        // Give core 0's FreeRTOS tasks a chance to run.
         if ((row + 1) % ROWS_PER_YIELD == 0)
             vTaskDelay(1);
     }
