@@ -59,7 +59,7 @@ void SerialProtocol::update()
 
                 len |= static_cast<uint16_t>(b) << 8;
 
-                if (len > sizeof(buffer))
+                if (len != PACKED2_SIZE)
                     state = RXState::WAIT_HEADER1;
                 else
                     state = RXState::MODE;
@@ -95,9 +95,8 @@ void SerialProtocol::update()
                 {
                     if (_frameCallback)
                     {
-                        _serial->write('k');
-
                         _frameCallback(buffer, len);
+                        _serial->write('k');
                     }
                 }
 

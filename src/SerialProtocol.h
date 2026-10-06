@@ -33,7 +33,7 @@ private:
     uint8_t  checksum = 0;
     uint16_t pos = 0;
 
-    uint8_t buffer[10000];
+    uint8_t buffer[PACKED2_SIZE];
 
     // NEW — text line buffer
     String textLine;

@@ -114,13 +114,17 @@ public class Esp32ImageSender : IDisposable
             TrySend();
         }
     }
-        private static byte[] Pack2Bit(byte[,] px)
+    private static byte[] Pack2Bit(byte[,] px)
     {
         int h = px.GetLength(0);
         int w = px.GetLength(1);
 
-        int pixelCount = w * h;
-        int byteCount = (pixelCount + 3) >> 2;
+        if (w != 100 || h != 100)
+            throw new ArgumentException(
+                $"Expected 100x100 image, got {w}x{h}");
+
+        const int pixelCount = 100 * 100;
+        const int byteCount = pixelCount / 4;
 
         var result = new byte[byteCount];
 
@@ -131,18 +135,10 @@ public class Esp32ImageSender : IDisposable
             for (int x = 0; x < w; x++)
             {
                 byte v = px[y, x];
-
-                // 8-bit grayscale -> 2-bit grayscale
-                // 0   -> 0
-                // 85  -> 1
-                // 170 -> 2
-                // 255 -> 3
                 int q = v >> 6;
 
-                int byteIndex = pixel >> 2;
-                int shift = (pixel & 3) * 2;
-
-                result[byteIndex] |= (byte)(q << shift);
+                result[pixel >> 2] |=
+                    (byte)(q << ((pixel & 3) * 2));
 
                 pixel++;
             }
@@ -165,6 +161,10 @@ public class Esp32ImageSender : IDisposable
     {
         if (_port == null || !_port.IsOpen) return;
         if (_latestFrame == null || !_ready) return;
+        
+        Console.WriteLine(
+            $"Sending mode={_currentMode}, payload={_latestFrame.Length} bytes"
+        );
 
         var frame = BuildFrame(_latestFrame, _currentMode);
 

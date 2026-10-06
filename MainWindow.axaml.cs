@@ -91,7 +91,7 @@ public partial class MainWindow : Window
             var processed = ImageProcessor.To8Bit(_bitmap, 100, 100, settings);
 
             if (processed != null && _sender._port?.IsOpen == true)
-                _sender.SendImage8Bit(processed);
+                _sender.SendImage2Bit(processed);
 
             Dispatcher.UIThread.Post(() =>
             {
