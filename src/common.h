@@ -12,4 +12,5 @@ static constexpr int DWELL_STEP_US   = 1;
 static constexpr int SCAN_TASK_STACK    = 4096;
 static constexpr int SCAN_TASK_PRIORITY = 3;
 static constexpr int ROWS_PER_YIELD = 4;
-static uint8_t unpackedFrame[VIDEO_PIXELS] = {255};
+extern uint8_t unpackedFrame[VIDEO_PIXELS];
+static constexpr float POS_MULTIPLIER = 1.8;

@@ -9,19 +9,16 @@ static TaskHandle_t scanTaskHandle = nullptr;
 static int16_t xPosition[VIDEO_WIDTH];
 static int16_t yPosition[VIDEO_HEIGHT];
 static uint16_t sourceRowOffset[VIDEO_HEIGHT];
-static uint8_t dwellTable[256];
+uint8_t unpackedFrame[VIDEO_PIXELS];
 
 static void buildTables()
 {
-    for (int i = 0; i < 256; ++i)
-        dwellTable[i] = (i >> 6) * DWELL_STEP_US;
-
     for (int col = 0; col < VIDEO_WIDTH; ++col)
-        xPosition[col] = (-50 + col) * 2;
+        xPosition[col] = (-50 + col) * POS_MULTIPLIER;
 
     for (int row = 0; row < VIDEO_HEIGHT; ++row)
     {
-        yPosition[row] = (-50 + row) * 2;
+        yPosition[row] = (-50 + row) * POS_MULTIPLIER;
 
         sourceRowOffset[row] =
             (VIDEO_HEIGHT - 1 - row) * VIDEO_WIDTH;
@@ -45,7 +42,7 @@ static void scanFrame(const uint8_t* frame)
                     : i;
 
             const uint8_t pixel = src[col];
-            const uint8_t dwell = dwellTable[pixel];
+            const uint8_t dwell = pixel >> 6;
 
             if (dwell == 0)
                 continue;
@@ -76,6 +73,7 @@ static void videoScanTask(void*)
 }
 void videoInit()
 {
+    memset(unpackedFrame, 255, sizeof(unpackedFrame));
     buildTables();
 }
 void videoStart()
@@ -87,6 +85,6 @@ void videoStart()
         nullptr,
         SCAN_TASK_PRIORITY,
         &scanTaskHandle,
-        1
+        0
     );
 }

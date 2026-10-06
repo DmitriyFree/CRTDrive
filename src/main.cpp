@@ -1,19 +1,23 @@
 #include <Arduino.h>
-
+#include "VideoDriver.h"
 #include "common.h"
 #include "hardware.h"
 #include "SerialProtocol.h"
-#include "VideoDriver.h"
 
 SerialProtocol SerialProto;
 
 void onFrameReceived(uint8_t* buf, uint16_t len)
 {
     digitalWrite(2, !digitalRead(2));
+
+    if (len != PACKED2_SIZE)
+        return;
+
     for (int i = 0; i < VIDEO_PIXELS; i++)
     {
-        uint8_t packed = buf[i >> 2];
-        uint8_t value = (packed >> ((i & 3) * 2)) & 0x03;
+        const uint8_t packed = buf[i >> 2];
+        const uint8_t value =
+            (packed >> ((i & 3) * 2)) & 0x03;
 
         unpackedFrame[i] = value * 85;
     }
@@ -54,14 +58,9 @@ void setup()
         nullptr,
         SERIAL_TASK_PRIORITY,
         nullptr,
-        0
+        1
     );
 }
 
-// ================= LOOP =================
-
-void loop()
-{
-    // Everything is handled by dedicated tasks.
-    //vTaskDelay(1000);
+void loop(){
 }
