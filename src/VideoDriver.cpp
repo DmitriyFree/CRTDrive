@@ -26,6 +26,102 @@ static void buildTables()
 }
 static void scanFrame(const uint8_t* frame)
 {
+    for (int row = 0; row < VIDEO_HEIGHT; ++row)
+    {
+        const uint8_t* src =
+            frame + sourceRowOffset[row];
+
+        const bool reverse = row & 1;
+
+        int i = 0;
+
+        while (i < VIDEO_WIDTH)
+        {
+            // Find first lit pixel.
+            int start = i;
+
+            while (start < VIDEO_WIDTH)
+            {
+                const int col =
+                    reverse
+                        ? VIDEO_WIDTH - 1 - start
+                        : start;
+
+                if ((src[col] >> 6) != 0)
+                    break;
+
+                ++start;
+            }
+
+            if (start >= VIDEO_WIDTH)
+                break;
+
+            // Find end of lit run.
+            int end = start + 1;
+
+            while (end < VIDEO_WIDTH)
+            {
+                const int col =
+                    reverse
+                        ? VIDEO_WIDTH - 1 - end
+                        : end;
+
+                if ((src[col] >> 6) == 0)
+                    break;
+
+                ++end;
+            }
+
+            // Move to run start while blanked.
+            const int startCol =
+                reverse
+                    ? VIDEO_WIDTH - 1 - start
+                    : start;
+
+            beamOff();
+
+            setPoint(
+                xPosition[startCol],
+                yPosition[row]
+            );
+
+            delayMicroseconds(SETTLE_US);
+
+            // Now traverse the run.
+            for (int p = start; p < end; ++p)
+            {
+                const int col =
+                    reverse
+                        ? VIDEO_WIDTH - 1 - p
+                        : p;
+
+                setPoint(
+                    xPosition[col],
+                    yPosition[row]
+                );
+
+                const uint8_t dwell =
+                    src[col] >> 6;
+
+                if (dwell != 0)
+                {
+                    beamOn();
+                    delayMicroseconds(
+                        dwell * DWELL_STEP_US
+                    );
+                    beamOff();
+                }
+            }
+
+            i = end;
+        }
+
+        if ((row + 1) % ROWS_PER_YIELD == 0)
+            vTaskDelay(1);
+    }
+}
+static void scanFrame_(const uint8_t* frame)
+{
     constexpr int PIXELS = VIDEO_WIDTH;
 
     beamOff();

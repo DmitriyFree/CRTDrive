@@ -181,13 +181,13 @@ void hardwareInit()
 
     ledcAttach(
         X_PWM_PIN,
-        PWM_FREQUENCY,
+        PWM_FREQUENCY_X,
         PWM_RESOLUTION
     );
 
     ledcAttach(
         Y_PWM_PIN,
-        PWM_FREQUENCY,
+        PWM_FREQUENCY_Y,
         PWM_RESOLUTION
     );
 
