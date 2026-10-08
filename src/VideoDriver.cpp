@@ -26,98 +26,123 @@ static void buildTables()
 }
 static void scanFrame(const uint8_t* frame)
 {
-    for (int row = 0; row < VIDEO_HEIGHT; ++row)
+    constexpr int HALF_WIDTH = VIDEO_WIDTH / 2;
+
+    // Four sequential quadrants:
+    // 1. Top-left
+    // 2. Top-right
+    // 3. Bottom-left
+    // 4. Bottom-right
+
+    for (int quadrant = 0; quadrant < 4; ++quadrant)
     {
-        const uint8_t* src =
-            frame + sourceRowOffset[row];
+        const bool bottom = quadrant >= 2;
+        const bool right  = quadrant & 1;
 
-        const bool reverse = row & 1;
+        const int rowStart =
+            bottom ? VIDEO_HEIGHT / 2 : 0;
 
-        int i = 0;
+        const int rowEnd =
+            bottom ? VIDEO_HEIGHT : VIDEO_HEIGHT / 2;
 
-        while (i < VIDEO_WIDTH)
+        const int colStart =
+            right ? HALF_WIDTH : 0;
+
+        const int colEnd =
+            right ? VIDEO_WIDTH : HALF_WIDTH;
+
+        for (int row = rowStart; row < rowEnd; ++row)
         {
-            // Find first lit pixel.
-            int start = i;
+            const uint8_t* src =
+                frame + sourceRowOffset[row];
 
-            while (start < VIDEO_WIDTH)
+            // Preserve the normal snake pattern.
+            const bool reverse = row & 1;
+
+            int i;
+
+            if (reverse)
+                i = colEnd - 1;
+            else
+                i = colStart;
+
+            while (reverse ? i >= colStart : i < colEnd)
             {
-                const int col =
-                    reverse
-                        ? VIDEO_WIDTH - 1 - start
-                        : start;
+                // Find first lit pixel.
+                int start = i;
 
-                if ((src[col] >> 6) != 0)
+                while (reverse ? start >= colStart : start < colEnd)
+                {
+                    const int col = start;
+
+                    if ((src[col] >> 6) != 0)
+                        break;
+
+                    start += reverse ? -1 : 1;
+                }
+
+                if (reverse ? start < colStart : start >= colEnd)
                     break;
 
-                ++start;
-            }
+                // Find end of lit run.
+                int end = start + (reverse ? -1 : 1);
 
-            if (start >= VIDEO_WIDTH)
-                break;
+                while (reverse ? end >= colStart : end < colEnd)
+                {
+                    const int col = end;
 
-            // Find end of lit run.
-            int end = start + 1;
+                    if ((src[col] >> 6) == 0)
+                        break;
 
-            while (end < VIDEO_WIDTH)
-            {
-                const int col =
-                    reverse
-                        ? VIDEO_WIDTH - 1 - end
-                        : end;
+                    end += reverse ? -1 : 1;
+                }
 
-                if ((src[col] >> 6) == 0)
-                    break;
-
-                ++end;
-            }
-
-            // Move to run start while blanked.
-            const int startCol =
-                reverse
-                    ? VIDEO_WIDTH - 1 - start
-                    : start;
-
-            beamOff();
-
-            setPoint(
-                xPosition[startCol],
-                yPosition[row]
-            );
-
-            delayMicroseconds(SETTLE_US);
-
-            // Now traverse the run.
-            for (int p = start; p < end; ++p)
-            {
-                const int col =
-                    reverse
-                        ? VIDEO_WIDTH - 1 - p
-                        : p;
+                // Move to run start while blanked.
+                beamOff();
 
                 setPoint(
-                    xPosition[col],
+                    xPosition[start],
                     yPosition[row]
                 );
 
-                const uint8_t dwell =
-                    src[col] >> 6;
+                delayMicroseconds(SETTLE_US);
 
-                if (dwell != 0)
+                // Traverse the lit run.
+                int p = start;
+
+                while (reverse ? p != end : p != end)
                 {
-                    beamOn();
-                    delayMicroseconds(
-                        dwell * DWELL_STEP_US
+                    const int col = p;
+
+                    setPoint(
+                        xPosition[col],
+                        yPosition[row]
                     );
-                    beamOff();
+
+                    const uint8_t dwell =
+                        src[col] >> 6;
+
+                    if (dwell != 0)
+                    {
+                        beamOn();
+
+                        delayMicroseconds(
+                            dwell * DWELL_STEP_US
+                        );
+
+                        beamOff();
+                    }
+
+                    p += reverse ? -1 : 1;
                 }
+
+                // Continue searching after this run.
+                i = end;
             }
 
-            i = end;
+            if ((row + 1) % ROWS_PER_YIELD == 0)
+                vTaskDelay(1);
         }
-
-        if ((row + 1) % ROWS_PER_YIELD == 0)
-            vTaskDelay(1);
     }
 }
 static void scanFrame_(const uint8_t* frame)
