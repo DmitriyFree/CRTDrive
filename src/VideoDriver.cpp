@@ -26,6 +26,8 @@ static void buildTables()
 }
 static void scanFrame(const uint8_t* frame)
 {
+    constexpr int PIXELS = VIDEO_WIDTH;
+
     for (int row = 0; row < VIDEO_HEIGHT; ++row)
     {
         const uint8_t* src =
@@ -33,88 +35,72 @@ static void scanFrame(const uint8_t* frame)
 
         const bool reverse = row & 1;
 
-        int i = 0;
+        const int startCol =
+            reverse ? VIDEO_WIDTH - 1 : 0;
 
-        while (i < VIDEO_WIDTH)
+        const int endCol =
+            reverse ? 0 : VIDEO_WIDTH - 1;
+
+        const int nextRow = row + 1;
+
+        // Command the end of this sweep.
+        //
+        // Example:
+        // row 0: current position -> X=right, Y=0
+        // row 1:                  -> X=left,  Y=1
+        //
+        beamOff();
+
+        setPoint(
+            xPosition[endCol],
+            yPosition[row]
+        );
+
+        const uint32_t commandTime = micros();
+
+        bool beamState = false;
+        int lastPixel = -1;
+
+        while (true)
         {
-            // Find first lit pixel.
-            int start = i;
+            const uint32_t elapsed =
+                micros() - commandTime;
 
-            while (start < VIDEO_WIDTH)
-            {
-                const int col =
-                    reverse
-                        ? VIDEO_WIDTH - 1 - start
-                        : start;
-
-                if ((src[col] >> 6) != 0)
-                    break;
-
-                ++start;
-            }
-
-            if (start >= VIDEO_WIDTH)
+            if (elapsed >= SETTLE_US)
                 break;
 
-            // Find end of lit run.
-            int end = start + 1;
-
-            while (end < VIDEO_WIDTH)
-            {
-                const int col =
-                    reverse
-                        ? VIDEO_WIDTH - 1 - end
-                        : end;
-
-                if ((src[col] >> 6) == 0)
-                    break;
-
-                ++end;
-            }
-
-            // Move to run start while blanked.
-            const int startCol =
-                reverse
-                    ? VIDEO_WIDTH - 1 - start
-                    : start;
-
-            beamOff();
-
-            setPoint(
-                xPosition[startCol],
-                yPosition[row]
-            );
-
-            delayMicroseconds(SETTLE_US);
-
-            // Now traverse the run.
-            for (int p = start; p < end; ++p)
-            {
-                const int col =
-                    reverse
-                        ? VIDEO_WIDTH - 1 - p
-                        : p;
-
-                setPoint(
-                    xPosition[col],
-                    yPosition[row]
+            const int pixel =
+                (int)(
+                    (uint64_t)elapsed *
+                    (PIXELS /
+                    SETTLE_US)
                 );
 
-                const uint8_t dwell =
-                    src[col] >> 6;
+            if (pixel != lastPixel)
+            {
+                lastPixel = pixel;
 
-                if (dwell != 0)
+                const int col =
+                    reverse
+                        ? VIDEO_WIDTH - 1 - pixel
+                        : pixel;
+
+                const bool shouldBeOn =
+                    (src[col] >> 6) != 0;
+
+                if (shouldBeOn != beamState)
                 {
-                    beamOn();
-                    delayMicroseconds(
-                        dwell * DWELL_STEP_US
-                    );
-                    beamOff();
+                    beamState = shouldBeOn;
+
+                    if (beamState)
+                        beamOn();
+                    else
+                        beamOff();
                 }
             }
-
-            i = end;
         }
+
+        beamOff();
 
         if ((row + 1) % ROWS_PER_YIELD == 0)
             vTaskDelay(1);

@@ -21,6 +21,6 @@ constexpr int DRIVER_SLEEP_PIN = 5;
 constexpr int BEAM_ALPHA_A_PIN = 15;
 constexpr int PWM_RESOLUTION = 8;
 
-constexpr int PWM_FREQUENCY = 30000;
+constexpr int PWM_FREQUENCY = 10000;
 static constexpr int SETTLE_US       = 50;
 static constexpr int DWELL_STEP_US   = 2;
