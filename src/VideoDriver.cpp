@@ -14,11 +14,11 @@ uint8_t unpackedFrame[VIDEO_PIXELS];
 static void buildTables()
 {
     for (int col = 0; col < VIDEO_WIDTH; ++col)
-        xPosition[col] = (-50 + col) * POS_MULTIPLIER;
+        xPosition[col] = (-50 + col) * POS_MULTIPLIER_X;
 
     for (int row = 0; row < VIDEO_HEIGHT; ++row)
     {
-        yPosition[row] = (-50 + row) * POS_MULTIPLIER;
+        yPosition[row] = (-50 + row) * POS_MULTIPLIER_Y;
 
         sourceRowOffset[row] =
             (VIDEO_HEIGHT - 1 - row) * VIDEO_WIDTH;
@@ -28,31 +28,35 @@ static void scanFrame(const uint8_t* frame)
 {
     constexpr int PIXELS = VIDEO_WIDTH;
 
-    // Start at the left side of the first row.
     beamOff();
 
+    // Start at the left side.
     setPoint(
         xPosition[0],
         yPosition[0]
     );
+
+    delayMicroseconds(SETTLE_US);
 
     for (int row = 0; row < VIDEO_HEIGHT; ++row)
     {
         const uint8_t* src =
             frame + sourceRowOffset[row];
 
-        const bool reverse = row & 1;
-
-        const int endCol =
-            reverse
-                ? 0
-                : VIDEO_WIDTH - 1;
-
-        // Command the entire next-row movement.
         beamOff();
 
+        // Move to the START of this row.
         setPoint(
-            xPosition[endCol],
+            xPosition[0],
+            yPosition[row]
+        );
+
+        // Let the beam settle at the starting position.
+        delayMicroseconds(SETTLE_US);
+
+        // Now command the complete left -> right sweep.
+        setPoint(
+            xPosition[VIDEO_WIDTH - 1],
             yPosition[row]
         );
 
@@ -66,21 +70,14 @@ static void scanFrame(const uint8_t* frame)
             const uint32_t elapsed =
                 micros() - sweepStart;
 
-            if (elapsed >= SETTLE_US)
+            if (elapsed >= SWEEP_TIME_US)
                 break;
 
-            // Convert time into pixel index.
-            //
-            // elapsed:
-            // 0 ................ SETTLE_US
-            //
-            // pixel:
-            // 0 ................ VIDEO_WIDTH-1
             const int pixel =
                 (int)(
                     (uint64_t)elapsed *
                     PIXELS /
-                    SETTLE_US
+                    SWEEP_TIME_US
                 );
 
             if (pixel == lastPixel)
@@ -88,10 +85,7 @@ static void scanFrame(const uint8_t* frame)
 
             lastPixel = pixel;
 
-            const int col =
-                reverse
-                    ? VIDEO_WIDTH - 1 - pixel
-                    : pixel;
+            const int col = pixel;
 
             const bool shouldBeOn =
                 (src[col] >> 6) != 0;
