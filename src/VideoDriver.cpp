@@ -28,6 +28,14 @@ static void scanFrame(const uint8_t* frame)
 {
     constexpr int PIXELS = VIDEO_WIDTH;
 
+    // Start at the left side of the first row.
+    beamOff();
+
+    setPoint(
+        xPosition[0],
+        yPosition[0]
+    );
+
     for (int row = 0; row < VIDEO_HEIGHT; ++row)
     {
         const uint8_t* src =
@@ -35,20 +43,12 @@ static void scanFrame(const uint8_t* frame)
 
         const bool reverse = row & 1;
 
-        const int startCol =
-            reverse ? VIDEO_WIDTH - 1 : 0;
-
         const int endCol =
-            reverse ? 0 : VIDEO_WIDTH - 1;
+            reverse
+                ? 0
+                : VIDEO_WIDTH - 1;
 
-        const int nextRow = row + 1;
-
-        // Command the end of this sweep.
-        //
-        // Example:
-        // row 0: current position -> X=right, Y=0
-        // row 1:                  -> X=left,  Y=1
-        //
+        // Command the entire next-row movement.
         beamOff();
 
         setPoint(
@@ -56,7 +56,7 @@ static void scanFrame(const uint8_t* frame)
             yPosition[row]
         );
 
-        const uint32_t commandTime = micros();
+        const uint32_t sweepStart = micros();
 
         bool beamState = false;
         int lastPixel = -1;
@@ -64,39 +64,46 @@ static void scanFrame(const uint8_t* frame)
         while (true)
         {
             const uint32_t elapsed =
-                micros() - commandTime;
+                micros() - sweepStart;
 
             if (elapsed >= SETTLE_US)
                 break;
 
+            // Convert time into pixel index.
+            //
+            // elapsed:
+            // 0 ................ SETTLE_US
+            //
+            // pixel:
+            // 0 ................ VIDEO_WIDTH-1
             const int pixel =
                 (int)(
                     (uint64_t)elapsed *
-                    (PIXELS /
-                    SETTLE_US)
+                    PIXELS /
+                    SETTLE_US
                 );
 
-            if (pixel != lastPixel)
+            if (pixel == lastPixel)
+                continue;
+
+            lastPixel = pixel;
+
+            const int col =
+                reverse
+                    ? VIDEO_WIDTH - 1 - pixel
+                    : pixel;
+
+            const bool shouldBeOn =
+                (src[col] >> 6) != 0;
+
+            if (shouldBeOn != beamState)
             {
-                lastPixel = pixel;
+                beamState = shouldBeOn;
 
-                const int col =
-                    reverse
-                        ? VIDEO_WIDTH - 1 - pixel
-                        : pixel;
-
-                const bool shouldBeOn =
-                    (src[col] >> 6) != 0;
-
-                if (shouldBeOn != beamState)
-                {
-                    beamState = shouldBeOn;
-
-                    if (beamState)
-                        beamOn();
-                    else
-                        beamOff();
-                }
+                if (beamState)
+                    beamOn();
+                else
+                    beamOff();
             }
         }
 
