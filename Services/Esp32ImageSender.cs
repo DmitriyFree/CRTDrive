@@ -1,6 +1,7 @@
 using System;
 using System.IO.Ports;
 using System.Threading;
+using System.Collections.Generic;
 
 namespace CrtDrive.Services;
 
@@ -20,11 +21,15 @@ public class Esp32ImageSender : IDisposable
     private readonly Timer _ackWatchdog;
     private const int ACK_TIMEOUT_MS = 1000;//67; // ~1/15 sec
 
+    private FrameMode _lastSentMode;
+    private bool _hasLastSentFrame;
+
     private enum FrameMode : byte
     {
         Bit1Packed = 0,
         Bit8Raw = 1,
-        Bit2Packed = 2
+        Bit2Packed = 2,
+        VectorLines = 3
     }
 
     public Esp32ImageSender(int baud = 3000000)
@@ -90,10 +95,13 @@ public class Esp32ImageSender : IDisposable
 
         lock (_lock)
         {
-            if (IsDuplicate(raw)) return;
+            if (IsDuplicate(raw, FrameMode.Bit8Raw)) return;
 
             _currentMode = FrameMode.Bit8Raw;
             _latestFrame = raw;
+            _lastSentFrame = (byte[])_latestFrame.Clone();
+            _lastSentMode = _currentMode;
+            _hasLastSentFrame = true;
 
             TrySend();
         }
@@ -106,10 +114,13 @@ public class Esp32ImageSender : IDisposable
 
         lock (_lock)
         {
-            if (IsDuplicate(packed)) return;
+            if (IsDuplicate(packed, FrameMode.Bit2Packed)) return;
 
             _currentMode = FrameMode.Bit2Packed;
             _latestFrame = packed;
+            _lastSentFrame = (byte[])_latestFrame.Clone();
+            _lastSentMode = _currentMode;
+            _hasLastSentFrame = true;
 
             TrySend();
         }
@@ -235,10 +246,12 @@ public class Esp32ImageSender : IDisposable
     // HELPERS
     // =========================
 
-    private bool IsDuplicate(byte[] frame)
+    private bool IsDuplicate(byte[] frame, FrameMode mode)
     {
-        if (_lastSentFrame == null) return false;
-        return AreEqual(_lastSentFrame, frame);
+        return _hasLastSentFrame &&
+            _lastSentMode == mode &&
+            _lastSentFrame != null &&
+            AreEqual(_lastSentFrame, frame);
     }
 
     private static bool AreEqual(byte[] a, byte[] b)
@@ -293,6 +306,46 @@ public class Esp32ImageSender : IDisposable
         frame[^1] = chk;
 
         return frame;
+    }
+
+
+public readonly record struct LineSegment(
+    byte X1, byte Y1,
+    byte X2, byte Y2);
+
+    public void SendVectorLines(IReadOnlyList<LineSegment> lines)
+    {
+        if (_port == null || !_port.IsOpen)
+            return;
+
+        // Four bytes per line.
+        if (lines.Count > 16000)
+            throw new ArgumentException("Too many line segments.");
+
+        var data = new byte[lines.Count * 4];
+
+        for (int i = 0; i < lines.Count; i++)
+        {
+            var line = lines[i];
+            int offset = i * 4;
+
+            data[offset]     = line.X1;
+            data[offset + 1] = line.Y1;
+            data[offset + 2] = line.X2;
+            data[offset + 3] = line.Y2;
+        }
+
+        lock (_lock)
+        {
+            if (IsDuplicate(data, FrameMode.Bit1Packed)) return;
+
+            _currentMode = FrameMode.Bit1Packed;
+            _latestFrame = data;
+            _lastSentFrame = (byte[])_latestFrame.Clone();
+            _lastSentMode = _currentMode;
+            _hasLastSentFrame = true;
+            TrySend();
+        }
     }
 
     // =========================

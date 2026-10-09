@@ -7,10 +7,10 @@ using System.Threading.Tasks;
 
 namespace CrtDrive.Services;
 
-public sealed class ScreenCaptureService : IDisposable
+public sealed class ScreenCaptureService(int width = 480, int height = 300) : IDisposable
 {
-    public int Width { get; }
-    public int Height { get; }
+    public int Width { get; } = width;
+    public int Height { get; } = height;
 
     public event Action<byte[]>? FrameReceived;
 
@@ -18,12 +18,6 @@ public sealed class ScreenCaptureService : IDisposable
     private CancellationTokenSource? _cts;
     private Task? _readTask;
     private Task? _logTask;
-
-    public ScreenCaptureService(int width = 480, int height = 300/*int width = 960, int height = 600*/)
-    {
-        Width = width;
-        Height = height;
-    }
 
     // =========================
     // Public API

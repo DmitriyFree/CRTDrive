@@ -86,17 +86,47 @@ public partial class MainWindow : Window
                 AdaptiveExposure = _adaptiveExposure
             };
 
-            var processed = ImageProcessor.To8Bit(_bitmap, 100, 100, settings);
+            var processed = ImageProcessor.To8Bit(
+                _bitmap, 100, 100, settings);
+           
+            bool vectorMode = true;//VectorModeCheckBox.IsChecked == true; //gets stuck somehow
+            
+            if (vectorMode)
+            {
+                var vector = VectorImageProcessor.Process(
+                    processed,
+                    maxSegments: 200,//(int)MaxSegmentsSlider.Value,//also getting stuck
+                    threshold: 170,//(byte)VectorThresholdSlider.Value,
+                    tolerance: (float)1.5);//(float)VectorToleranceSlider.Value); 
 
-            if (processed != null && _sender._port?.IsOpen == true)
-                _sender.SendImage2Bit(processed);
+                if (_sender._port?.IsOpen == true)
+                    _sender.SendVectorLines(vector.Lines);
+                Console.WriteLine(vector.Lines.Count);//not getting here
+                Dispatcher.UIThread.Post(() =>
+                {
+                    OriginalImage.Source = _bitmap;
+                    ProcessedImage.Source = vector.Preview;
+                });
+            }
+            else
+            {
+                if (_sender._port?.IsOpen == true)
+                    _sender.SendImage2Bit(processed);
+                
+                Dispatcher.UIThread.Post(() =>
+                {
+                    OriginalImage.Source = _bitmap;
+                    ProcessedImage.Source =
+                        ImageProcessor.RenderDisplay8Bit(processed);
+                });
+            }
 
             Dispatcher.UIThread.Post(() =>
             {
                 OriginalImage.Source = _bitmap;
                 OriginalImage.InvalidateVisual();
-                if (processed != null)
-                    ProcessedImage.Source = ImageProcessor.RenderDisplay8Bit(processed);
+                //if (processed != null)
+                //    ProcessedImage.Source = ImageProcessor.RenderDisplay8Bit(processed);
 
                 _brightness = (float)BrightnessSlider.Value;
                 _contrast = (float)ContrastSlider.Value;
