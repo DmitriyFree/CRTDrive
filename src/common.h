@@ -9,7 +9,6 @@ static constexpr int VIDEO_PIXELS = VIDEO_WIDTH * VIDEO_HEIGHT;
 static constexpr int PACKED2_SIZE = (VIDEO_PIXELS + 3) / 4;
 static constexpr int SCAN_TASK_STACK    = 4096;
 static constexpr int SCAN_TASK_PRIORITY = 19;
-static constexpr int ROWS_PER_YIELD = 100;
 extern uint8_t unpackedFrame[VIDEO_PIXELS];
 
 
