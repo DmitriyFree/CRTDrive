@@ -22,8 +22,8 @@ constexpr int BEAM_ALPHA_A_PIN = 15;
 
 constexpr int PWM_RESOLUTION_X = 12;
 constexpr int PWM_RESOLUTION_Y = 10;
-static constexpr float POS_MULTIPLIER_X = 8;
-static constexpr float POS_MULTIPLIER_Y = 8;
+static constexpr float POS_MULTIPLIER_X = 7.8;
+static constexpr float POS_MULTIPLIER_Y = 7.8;
 constexpr int PWM_FREQUENCY_X = 19531;
 constexpr int PWM_FREQUENCY_Y = 39062;
 
