@@ -182,13 +182,13 @@ void hardwareInit()
     ledcAttach(
         X_PWM_PIN,
         PWM_FREQUENCY_X,
-        PWM_RESOLUTION
+        PWM_RESOLUTION_X
     );
 
     ledcAttach(
         Y_PWM_PIN,
         PWM_FREQUENCY_Y,
-        PWM_RESOLUTION
+        PWM_RESOLUTION_Y
     );
 
     stopDeflection();

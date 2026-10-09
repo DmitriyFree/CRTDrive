@@ -8,11 +8,10 @@ static constexpr int SERIAL_TASK_PRIORITY = 3;
 static constexpr int VIDEO_PIXELS = VIDEO_WIDTH * VIDEO_HEIGHT;
 static constexpr int PACKED2_SIZE = (VIDEO_PIXELS + 3) / 4;
 static constexpr int SCAN_TASK_STACK    = 4096;
-static constexpr int SCAN_TASK_PRIORITY = 3;
-static constexpr int ROWS_PER_YIELD = 25;
+static constexpr int SCAN_TASK_PRIORITY = 19;
+static constexpr int ROWS_PER_YIELD = 100;
 extern uint8_t unpackedFrame[VIDEO_PIXELS];
-static constexpr float POS_MULTIPLIER_X = 1.8;
-static constexpr float POS_MULTIPLIER_Y = 1.5;
+
 
 constexpr int X_PWM_PIN = 16;
 constexpr int X_DIR_PIN = 17;
@@ -20,10 +19,14 @@ constexpr int Y_PWM_PIN = 18;
 constexpr int Y_DIR_PIN = 19;
 constexpr int DRIVER_SLEEP_PIN = 5;
 constexpr int BEAM_ALPHA_A_PIN = 15;
-constexpr int PWM_RESOLUTION = 8;
 
-constexpr int PWM_FREQUENCY_X = 300000;
-constexpr int PWM_FREQUENCY_Y = 100000;
-static constexpr int SETTLE_US = 1;
-static constexpr int SWEEP_TIME_US = 100;
-static constexpr int DWELL_STEP_US   = 2;
+constexpr int PWM_RESOLUTION_X = 12;
+constexpr int PWM_RESOLUTION_Y = 10;
+static constexpr float POS_MULTIPLIER_X = 8;
+static constexpr float POS_MULTIPLIER_Y = 8;
+constexpr int PWM_FREQUENCY_X = 19531;
+constexpr int PWM_FREQUENCY_Y = 39062;
+
+static constexpr int SETTLE_US = 40;
+static constexpr int DWELL_STEP_nS = 500;
+static constexpr int QUADRANTS = 32;

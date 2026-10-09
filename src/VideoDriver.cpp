@@ -11,6 +11,17 @@ static int16_t yPosition[VIDEO_HEIGHT];
 static uint16_t sourceRowOffset[VIDEO_HEIGHT];
 uint8_t unpackedFrame[VIDEO_PIXELS];
 
+void delayNanoseconds(uint32_t ns) {
+    // 240 MHz = 240 cycles per microsecond = 0.24 cycles per nanosecond
+    // Multiply by 240 and divide by 1000 to get required cycles
+    uint32_t cycles = (ns * 240) / 1000; 
+
+    uint32_t start = esp_cpu_get_cycle_count();
+    while ((esp_cpu_get_cycle_count() - start) < cycles) {
+        // Busy wait
+    }
+}
+
 static void buildTables()
 {
     for (int col = 0; col < VIDEO_WIDTH; ++col)
@@ -26,206 +37,145 @@ static void buildTables()
 }
 static void scanFrame(const uint8_t* frame)
 {
-    constexpr int HALF_WIDTH = VIDEO_WIDTH / 2;
+    // Number of scan sections.
+    //
+    // 2  = right half, then left half
+    // 4  = right-top, right-bottom, left-top, left-bottom
+    // 8  = 4 X sections, each split into top/bottom
+    // 16 = 8 X sections, each split into top/bottom
+    // 32 = 16 X sections, each split into top/bottom
+    //
+    // Must be a multiple of 2.
 
-    // Four sequential quadrants:
-    // 1. Top-left
-    // 2. Top-right
-    // 3. Bottom-left
-    // 4. Bottom-right
+    constexpr int X_SECTIONS = QUADRANTS / 2;
+    constexpr int SECTION_WIDTH =
+        VIDEO_WIDTH / (X_SECTIONS > 1 ? X_SECTIONS:1);
 
-    for (int quadrant = 0; quadrant < 4; ++quadrant)
+    constexpr int HALF_HEIGHT =
+        VIDEO_HEIGHT / 2;
+
+    // Start from RIGHT and move toward LEFT.
+    for (int section = 0;
+         section < X_SECTIONS;
+         ++section)
     {
-        const bool bottom = quadrant >= 2;
-        const bool right  = quadrant & 1;
-
-        const int rowStart =
-            bottom ? VIDEO_HEIGHT / 2 : 0;
-
-        const int rowEnd =
-            bottom ? VIDEO_HEIGHT : VIDEO_HEIGHT / 2;
-
         const int colStart =
-            right ? HALF_WIDTH : 0;
+            section * SECTION_WIDTH;
 
         const int colEnd =
-            right ? VIDEO_WIDTH : HALF_WIDTH;
+            (section == X_SECTIONS - 1)
+                ? VIDEO_WIDTH
+                : colStart + SECTION_WIDTH;
 
-        for (int row = rowStart; row < rowEnd; ++row)
+        // Top, then bottom.
+        for (int half = 0; half < 2; ++half)
         {
-            const uint8_t* src =
-                frame + sourceRowOffset[row];
+            const int rowStart =
+                half == 0
+                    ? 0
+                    : HALF_HEIGHT;
 
-            // Preserve the normal snake pattern.
-            const bool reverse = row & 1;
+            const int rowEnd =
+                half == 0
+                    ? HALF_HEIGHT
+                    : VIDEO_HEIGHT;
 
-            int i;
-
-            if (reverse)
-                i = colEnd - 1;
-            else
-                i = colStart;
-
-            while (reverse ? i >= colStart : i < colEnd)
+            for (int row = rowStart;
+                 row < rowEnd;
+                 ++row)
             {
-                // Find first lit pixel.
-                int start = i;
+                const uint8_t* src =
+                    frame + sourceRowOffset[row];
 
-                while (reverse ? start >= colStart : start < colEnd)
+                // Preserve snake pattern.
+                const bool reverse = row & 1;
+
+                int i =
+                    reverse
+                        ? colEnd - 1
+                        : colStart;
+
+                while (reverse
+                    ? i >= colStart
+                    : i < colEnd)
                 {
-                    const int col = start;
+                    // Find first lit pixel.
+                    int start = i;
 
-                    if ((src[col] >> 6) != 0)
+                    while (reverse
+                        ? start >= colStart
+                        : start < colEnd)
+                    {
+                        if ((src[start] >> 6) != 0)
+                            break;
+
+                        start += reverse ? -1 : 1;
+                    }
+
+                    if (reverse
+                        ? start < colStart
+                        : start >= colEnd)
+                    {
                         break;
+                    }
 
-                    start += reverse ? -1 : 1;
-                }
+                    // Find end of lit run.
+                    int end =
+                        start + (reverse ? -1 : 1);
 
-                if (reverse ? start < colStart : start >= colEnd)
-                    break;
+                    while (reverse
+                        ? end >= colStart
+                        : end < colEnd)
+                    {
+                        if ((src[end] >> 6) == 0)
+                            break;
 
-                // Find end of lit run.
-                int end = start + (reverse ? -1 : 1);
+                        end += reverse ? -1 : 1;
+                    }
 
-                while (reverse ? end >= colStart : end < colEnd)
-                {
-                    const int col = end;
-
-                    if ((src[col] >> 6) == 0)
-                        break;
-
-                    end += reverse ? -1 : 1;
-                }
-
-                // Move to run start while blanked.
-                beamOff();
-
-                setPoint(
-                    xPosition[start],
-                    yPosition[row]
-                );
-
-                delayMicroseconds(SETTLE_US);
-
-                // Traverse the lit run.
-                int p = start;
-
-                while (reverse ? p != end : p != end)
-                {
-                    const int col = p;
+                    // Move to beginning of lit run
+                    // with beam blanked.
+                    beamOff();
 
                     setPoint(
-                        xPosition[col],
+                        xPosition[start],
                         yPosition[row]
                     );
 
-                    const uint8_t dwell =
-                        src[col] >> 6;
+                    delayMicroseconds(SETTLE_US);
 
-                    if (dwell != 0)
+                    // Draw the lit run.
+                    int p = start;
+
+                    while (p != end)
                     {
-                        beamOn();
+                        const uint8_t dwell =
+                            src[p] >> 6;
 
-                        delayMicroseconds(
-                            dwell * DWELL_STEP_US
+                        setPoint(
+                            xPosition[p],
+                            yPosition[row]
                         );
 
-                        beamOff();
+                        if (dwell != 0)
+                        {
+                            beamOn();
+
+                            delayNanoseconds(DWELL_STEP_nS * dwell);
+
+                            beamOff();
+                        }
+
+                        p += reverse ? -1 : 1;
                     }
 
-                    p += reverse ? -1 : 1;
+                    i = end;
                 }
 
-                // Continue searching after this run.
-                i = end;
-            }
-
-            if ((row + 1) % ROWS_PER_YIELD == 0)
-                vTaskDelay(1);
-        }
-    }
-}
-static void scanFrame_(const uint8_t* frame)
-{
-    constexpr int PIXELS = VIDEO_WIDTH;
-
-    beamOff();
-
-    // Start at the left side.
-    setPoint(
-        xPosition[0],
-        yPosition[0]
-    );
-
-    delayMicroseconds(SETTLE_US);
-
-    for (int row = 0; row < VIDEO_HEIGHT; ++row)
-    {
-        const uint8_t* src =
-            frame + sourceRowOffset[row];
-
-        beamOff();
-
-        // Move to the START of this row.
-        setPoint(
-            xPosition[0],
-            yPosition[row]
-        );
-
-        // Let the beam settle at the starting position.
-        delayMicroseconds(SETTLE_US);
-
-        // Now command the complete left -> right sweep.
-        setPoint(
-            xPosition[VIDEO_WIDTH - 1],
-            yPosition[row]
-        );
-
-        const uint32_t sweepStart = micros();
-
-        bool beamState = false;
-        int lastPixel = -1;
-
-        while (true)
-        {
-            const uint32_t elapsed =
-                micros() - sweepStart;
-
-            if (elapsed >= SWEEP_TIME_US)
-                break;
-
-            const int pixel =
-                (int)(
-                    (uint64_t)elapsed *
-                    PIXELS /
-                    SWEEP_TIME_US
-                );
-
-            if (pixel == lastPixel)
-                continue;
-
-            lastPixel = pixel;
-
-            const int col = pixel;
-
-            const bool shouldBeOn =
-                (src[col] >> 6) != 0;
-
-            if (shouldBeOn != beamState)
-            {
-                beamState = shouldBeOn;
-
-                if (beamState)
-                    beamOn();
-                else
-                    beamOff();
+                if ((row + 1) % ROWS_PER_YIELD == 0)
+                    vTaskDelay(1);
             }
         }
-
-        beamOff();
-
-        if ((row + 1) % ROWS_PER_YIELD == 0)
-            vTaskDelay(1);
     }
 }
 static void videoScanTask(void*)
