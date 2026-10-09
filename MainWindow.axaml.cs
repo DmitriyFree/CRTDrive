@@ -96,8 +96,8 @@ public partial class MainWindow : Window
                 var vector = VectorImageProcessor.Process(
                     processed,
                     maxSegments: 200,//(int)MaxSegmentsSlider.Value,//also getting stuck
-                    threshold: 170,//(byte)VectorThresholdSlider.Value,
-                    tolerance: (float)1.5);//(float)VectorToleranceSlider.Value); 
+                    threshold: 200,//(byte)VectorThresholdSlider.Value,
+                    tolerance: (float)1);//(float)VectorToleranceSlider.Value); 
 
                 if (_sender._port?.IsOpen == true)
                     _sender.SendVectorLines(vector.Lines);
