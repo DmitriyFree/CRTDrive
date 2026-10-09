@@ -24,12 +24,18 @@ void delayNanoseconds(uint32_t ns) {
 
 static void buildTables()
 {
+    constexpr int X_MAX_DUTY = (1 << PWM_RESOLUTION_X) - 1;
+    constexpr int Y_MAX_DUTY = (1 << PWM_RESOLUTION_Y) - 1;
+
+    const float xScale = (X_MAX_DUTY * X_GAIN) / 50.0f;
+    const float yScale = (Y_MAX_DUTY * Y_GAIN) / 50.0f;
+
     for (int col = 0; col < VIDEO_WIDTH; ++col)
-        xPosition[col] = (-50 + col) * POS_MULTIPLIER_X;
+        xPosition[col] = (int)((-50 + col) * xScale);
 
     for (int row = 0; row < VIDEO_HEIGHT; ++row)
     {
-        yPosition[row] = (-50 + row) * POS_MULTIPLIER_Y;
+        yPosition[row] = (int)((-50 + row) * yScale);
 
         sourceRowOffset[row] =
             (VIDEO_HEIGHT - 1 - row) * VIDEO_WIDTH;

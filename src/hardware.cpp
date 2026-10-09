@@ -25,6 +25,11 @@ inline void fastWrite(int pin, bool level)
 
 inline void fastPwmX(int duty)
 {
+    constexpr int MAX_DUTY = (1 << PWM_RESOLUTION_X) - 1;
+
+    if (duty < 0) duty = 0;
+    if (duty > MAX_DUTY) duty = MAX_DUTY;
+
     LEDC.channel_group[0].channel[0].duty.duty =
         ((uint32_t)duty << 4);
 
@@ -33,6 +38,11 @@ inline void fastPwmX(int duty)
 
 inline void fastPwmY(int duty)
 {
+    constexpr int MAX_DUTY = (1 << PWM_RESOLUTION_Y) - 1;
+
+    if (duty < 0) duty = 0;
+    if (duty > MAX_DUTY) duty = MAX_DUTY;
+
     LEDC.channel_group[0].channel[1].duty.duty =
         ((uint32_t)duty << 4);
 
