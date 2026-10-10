@@ -309,16 +309,16 @@ public class Esp32ImageSender : IDisposable
     }
 
 
-public readonly record struct LineSegment(
-    byte X1, byte Y1,
-    byte X2, byte Y2);
+    public readonly record struct LineSegment(
+        byte X1, byte Y1,
+        byte X2, byte Y2);
+
 
     public void SendVectorLines(IReadOnlyList<LineSegment> lines)
     {
         if (_port == null || !_port.IsOpen)
             return;
 
-        // Four bytes per line.
         if (lines.Count > 16000)
             throw new ArgumentException("Too many line segments.");
 
@@ -337,13 +337,16 @@ public readonly record struct LineSegment(
 
         lock (_lock)
         {
-            if (IsDuplicate(data, FrameMode.Bit1Packed)) return;
+            if (IsDuplicate(data, FrameMode.VectorLines))
+                return;
 
-            _currentMode = FrameMode.Bit1Packed;
+            _currentMode = FrameMode.VectorLines;
             _latestFrame = data;
-            _lastSentFrame = (byte[])_latestFrame.Clone();
-            _lastSentMode = _currentMode;
+
+            _lastSentFrame = (byte[])data.Clone();
+            _lastSentMode = FrameMode.VectorLines;
             _hasLastSentFrame = true;
+
             TrySend();
         }
     }

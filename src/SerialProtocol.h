@@ -2,7 +2,7 @@
 #include <Arduino.h>
 #include "common.h"
 
-typedef void (*FrameCallback)(uint8_t*, uint16_t);
+typedef void (*FrameCallback)(uint8_t*, uint16_t, uint8_t mode);
 typedef void (*TextCallback)(const String&);
 
 class SerialProtocol
