@@ -97,7 +97,7 @@ public partial class MainWindow : Window
                     processed,
                     maxSegments: 200,//(int)MaxSegmentsSlider.Value,//also getting stuck
                     threshold: 200,//(byte)VectorThresholdSlider.Value,
-                    tolerance: (float)1);//(float)VectorToleranceSlider.Value); 
+                    tolerance: 1);//(float)VectorToleranceSlider.Value); 
 
                 if (_sender._port?.IsOpen == true)
                     _sender.SendVectorLines(vector.Lines);

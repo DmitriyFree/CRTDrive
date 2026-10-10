@@ -10,21 +10,24 @@ namespace CrtDrive.Services;
 
 public static class VectorImageProcessor
 {
-    private const int AngleCount = 180;
-    private const int MinLineLength = 3;
-    private const int MinLineVotes = 4;
+    private readonly record struct Point(int X, int Y);
 
-    private sealed class Candidate
+    private sealed class Segment
     {
-        public int Angle;
-        public int Rho;
-        public int Votes;
+        public Point A;
+        public Point B;
+
+        public Segment(Point a, Point b)
+        {
+            A = a;
+            B = b;
+        }
     }
 
     public static VectorFrame Process(
         byte[,] gray,
         int maxSegments = 100,
-        byte threshold = 55,
+        byte threshold = 170,
         float tolerance = 1.5f)
     {
         int h = gray.GetLength(0);
@@ -33,321 +36,86 @@ public static class VectorImageProcessor
         if (w != 100 || h != 100)
             throw new ArgumentException("Expected a 100x100 image.");
 
-        maxSegments = Math.Clamp(maxSegments, 0, 1000);
-        tolerance = Math.Clamp(tolerance, 0.5f, 5f);
+        maxSegments = Math.Max(0, maxSegments);
+        tolerance = Math.Max(0, tolerance);
 
-        if (maxSegments == 0)
+        // Binary foreground mask: brighter pixels are the object.
+        bool[,] mask = new bool[h, w];
+
+        for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+            mask[y, x] = gray[y, x] >= threshold;
+
+        // Build the boundary of every foreground pixel.
+        // Each edge lies on the pixel grid, so coordinates range 0..100.
+        var edges = new List<Segment>();
+
+        for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
         {
-            var empty = new List<Esp32ImageSender.LineSegment>();
-            return new VectorFrame
-            {
-                Lines = empty,
-                Preview = Render(empty, w, h)
-            };
-        }
-
-        // 1. Smooth the image slightly to reduce fine texture.
-        byte[,] blurred = Blur(gray);
-
-        // 2. Calculate Sobel gradients.
-        float[,] gx = new float[h, w];
-        float[,] gy = new float[h, w];
-        float[,] magnitude = new float[h, w];
-
-        for (int y = 1; y < h - 1; y++)
-        for (int x = 1; x < w - 1; x++)
-        {
-            int sx =
-                -blurred[y - 1, x - 1] + blurred[y - 1, x + 1]
-                - 2 * blurred[y, x - 1] + 2 * blurred[y, x + 1]
-                - blurred[y + 1, x - 1] + blurred[y + 1, x + 1];
-
-            int sy =
-                -blurred[y - 1, x - 1] - 2 * blurred[y - 1, x]
-                - blurred[y - 1, x + 1]
-                + blurred[y + 1, x - 1] + 2 * blurred[y + 1, x]
-                + blurred[y + 1, x + 1];
-
-            gx[y, x] = sx;
-            gy[y, x] = sy;
-            magnitude[y, x] = MathF.Sqrt(sx * sx + sy * sy);
-        }
-
-        // 3. Non-maximum suppression: retain local edge maxima.
-        bool[,] edge = new bool[h, w];
-        float highThreshold = Math.Max((byte)1, (byte)threshold);
-        float lowThreshold = highThreshold * 0.5f;
-        bool[,] weak = new bool[h, w];
-
-        for (int y = 1; y < h - 1; y++)
-        for (int x = 1; x < w - 1; x++)
-        {
-            float m = magnitude[y, x];
-            if (m < lowThreshold)
+            if (!mask[y, x])
                 continue;
 
-            float angle = MathF.Atan2(gy[y, x], gx[y, x])
-                          * (180f / MathF.PI);
+            if (y == 0 || !mask[y - 1, x])
+                edges.Add(new(new(x, y), new(x + 1, y)));
 
-            if (angle < 0)
-                angle += 180f;
+            if (x == w - 1 || !mask[y, x + 1])
+                edges.Add(new(new(x + 1, y), new(x + 1, y + 1)));
 
-            int dx, dy;
+            if (y == h - 1 || !mask[y + 1, x])
+                edges.Add(new(new(x + 1, y + 1), new(x, y + 1)));
 
-            if (angle < 22.5f || angle >= 157.5f)
-                (dx, dy) = (1, 0);
-            else if (angle < 67.5f)
-                (dx, dy) = (1, 1);
-            else if (angle < 112.5f)
-                (dx, dy) = (0, 1);
-            else
-                (dx, dy) = (-1, 1);
-
-            if (m < magnitude[y + dy, x + dx] ||
-                m < magnitude[y - dy, x - dx])
-                continue;
-
-            weak[y, x] = true;
-            if (m >= highThreshold)
-                edge[y, x] = true;
+            if (x == 0 || !mask[y, x - 1])
+                edges.Add(new(new(x, y + 1), new(x, y)));
         }
 
-        // 4. Hysteresis: retain weak edges connected to strong edges.
-        var queue = new Queue<(int x, int y)>();
+        var contours = TraceContours(edges);
 
-        for (int y = 1; y < h - 1; y++)
-        for (int x = 1; x < w - 1; x++)
+        // Simplify the contours more aggressively until the budget fits.
+        float currentTolerance = tolerance;
+        List<List<Point>> simplified;
+
+        while (true)
         {
-            if (edge[y, x])
-                queue.Enqueue((x, y));
-        }
+            simplified = [.. contours
+                .Select(c => SimplifyClosed(c, currentTolerance))
+                .Where(c => c.Count >= 2)];
 
-        while (queue.Count > 0)
-        {
-            var (x, y) = queue.Dequeue();
+            int count = simplified.Sum(c => c.Count);
 
-            for (int dy = -1; dy <= 1; dy++)
-            for (int dx = -1; dx <= 1; dx++)
-            {
-                if (dx == 0 && dy == 0)
-                    continue;
-
-                int nx = x + dx;
-                int ny = y + dy;
-
-                if (weak[ny, nx] && !edge[ny, nx])
-                {
-                    edge[ny, nx] = true;
-                    queue.Enqueue((nx, ny));
-                }
-            }
-        }
-
-        var points = new List<(int x, int y, float strength)>();
-
-        for (int y = 1; y < h - 1; y++)
-        for (int x = 1; x < w - 1; x++)
-        {
-            if (edge[y, x])
-                points.Add((x, y, magnitude[y, x]));
-        }
-
-        if (points.Count == 0)
-        {
-            var empty = new List<Esp32ImageSender.LineSegment>();
-            return new VectorFrame
-            {
-                Lines = empty,
-                Preview = Render(empty, w, h)
-            };
-        }
-
-        // 5. Hough transform: vote for straight lines.
-        int maxRho = (int)Math.Ceiling(
-            Math.Sqrt(w * w + h * h));
-
-        int rhoCount = maxRho * 2 + 1;
-        int[,] accumulator = new int[AngleCount, rhoCount];
-
-        float[] cosTable = new float[AngleCount];
-        float[] sinTable = new float[AngleCount];
-
-        for (int a = 0; a < AngleCount; a++)
-        {
-            float rad = a * MathF.PI / 180f;
-            cosTable[a] = MathF.Cos(rad);
-            sinTable[a] = MathF.Sin(rad);
-        }
-
-        foreach (var p in points)
-        {
-            for (int a = 0; a < AngleCount; a++)
-            {
-                int rho = (int)MathF.Round(
-                    p.x * cosTable[a] + p.y * sinTable[a]);
-
-                accumulator[a, rho + maxRho]++;
-            }
-        }
-
-        // 6. Collect local accumulator peaks.
-        var candidates = new List<Candidate>();
-
-        for (int a = 0; a < AngleCount; a++)
-        for (int r = 1; r < rhoCount - 1; r++)
-        {
-            int votes = accumulator[a, r];
-            if (votes < MinLineVotes)
-                continue;
-
-            bool peak = true;
-
-            for (int da = -1; da <= 1 && peak; da++)
-            for (int dr = -1; dr <= 1; dr++)
-            {
-                if (da == 0 && dr == 0)
-                    continue;
-
-                int na = (a + da + AngleCount) % AngleCount;
-                int nr = r + dr;
-
-                if (nr >= 0 && nr < rhoCount &&
-                    accumulator[na, nr] > votes)
-                {
-                    peak = false;
-                    break;
-                }
-            }
-
-            if (peak)
-            {
-                candidates.Add(new Candidate
-                {
-                    Angle = a,
-                    Rho = r - maxRho,
-                    Votes = votes
-                });
-            }
-        }
-
-        candidates = candidates
-            .OrderByDescending(c => c.Votes)
-            .ToList();
-
-        // 7. Convert each peak into a finite segment.
-        // Suppress edge points already explained by accepted lines.
-        bool[] consumed = new bool[points.Count];
-        var lines = new List<Esp32ImageSender.LineSegment>();
-
-        float lineTolerance = Math.Max(1f, tolerance);
-
-        foreach (var candidate in candidates)
-        {
-            if (lines.Count >= maxSegments)
+            if (count <= maxSegments || currentTolerance >= 200)
                 break;
 
-            float cos = cosTable[candidate.Angle];
-            float sin = sinTable[candidate.Angle];
+            currentTolerance = currentTolerance == 0
+                ? 0.5f
+                : currentTolerance * 1.5f;
+        }
 
-            // Line normal is (cos, sin); tangent is (-sin, cos).
-            float tx = -sin;
-            float ty = cos;
+        // Convert each contour into CRT line segments.
+        var lines = new List<Esp32ImageSender.LineSegment>();
 
-            var projected = new List<(float t, int index)>();
-
-            for (int i = 0; i < points.Count; i++)
+        foreach (var contour in simplified)
+        {
+            for (int i = 0; i < contour.Count; i++)
             {
-                if (consumed[i])
-                    continue;
+                Point a = contour[i];
+                Point b = contour[(i + 1) % contour.Count];
 
-                var p = points[i];
-
-                float distance = MathF.Abs(
-                    p.x * cos + p.y * sin - candidate.Rho);
-
-                if (distance <= lineTolerance)
-                {
-                    float t = p.x * tx + p.y * ty;
-                    projected.Add((t, i));
-                }
-            }
-
-            if (projected.Count < MinLineVotes)
-                continue;
-
-            projected.Sort((a, b) => a.t.CompareTo(b.t));
-
-            // Find the longest contiguous run along the line.
-            // Small gaps are tolerated; large gaps split the stroke.
-            int bestStart = 0, bestEnd = 0;
-            int runStart = 0;
-
-            for (int i = 1; i <= projected.Count; i++)
-            {
-                bool gap = i == projected.Count ||
-                           projected[i].t - projected[i - 1].t > 3.0f;
-
-                if (!gap)
-                    continue;
-
-                if (projected[runStart].t >= projected[i - 1].t)
-                {
-                    runStart = i;
-                    continue;
-                }
-
-                if (i - runStart > bestEnd - bestStart)
-                {
-                    bestStart = runStart;
-                    bestEnd = i;
-                }
-
-                runStart = i;
-            }
-
-            if (bestEnd <= bestStart)
-                continue;
-
-            float t0 = projected[bestStart].t;
-            float t1 = projected[bestEnd - 1].t;
-
-            if (t1 - t0 < MinLineLength)
-                continue;
-
-            // Reconstruct endpoints on the detected line.
-            float x0 = candidate.Rho * cos + t0 * tx;
-            float y0 = candidate.Rho * sin + t0 * ty;
-            float x1 = candidate.Rho * cos + t1 * tx;
-            float y1 = candidate.Rho * sin + t1 * ty;
-
-            int ix0 = Math.Clamp((int)MathF.Round(x0), 0, w - 1);
-            int iy0 = Math.Clamp((int)MathF.Round(y0), 0, h - 1);
-            int ix1 = Math.Clamp((int)MathF.Round(x1), 0, w - 1);
-            int iy1 = Math.Clamp((int)MathF.Round(y1), 0, h - 1);
-
-            if (ix0 == ix1 && iy0 == iy1)
-                continue;
-
-            lines.Add(new(
-                (byte)ix0, (byte)iy0,
-                (byte)ix1, (byte)iy1));
-
-            // Consume nearby edge pixels along the accepted segment.
-            for (int i = 0; i < points.Count; i++)
-            {
-                var p = points[i];
-
-                float along = (p.x - x0) * tx + (p.y - y0) * ty;
-                float across = MathF.Abs(
-                    (p.x - x0) * cos + (p.y - y0) * sin);
-
-                if (along >= -1 && along <= t1 - t0 + 1 &&
-                    across <= lineTolerance + 0.5f)
-                {
-                    consumed[i] = true;
-                }
+                lines.Add(new(
+                    (byte)Math.Clamp(a.X, 0, 99),
+                    (byte)Math.Clamp(a.Y, 0, 99),
+                    (byte)Math.Clamp(b.X, 0, 99),
+                    (byte)Math.Clamp(b.Y, 0, 99)));
             }
         }
+
+        // Safety cap. Normally simplification should reach this first.
+        if (lines.Count > maxSegments)
+            lines = lines
+                .OrderByDescending(l =>
+                    DistanceSquared(l.X1, l.Y1, l.X2, l.Y2))
+                .Take(maxSegments)
+                .ToList();
 
         return new VectorFrame
         {
@@ -356,32 +124,172 @@ public static class VectorImageProcessor
         };
     }
 
-    private static byte[,] Blur(byte[,] src)
+    private static List<List<Point>> TraceContours(List<Segment> edges)
     {
-        int h = src.GetLength(0);
-        int w = src.GetLength(1);
-        var dst = new byte[h, w];
+        var outgoing = new Dictionary<Point, List<int>>();
 
-        int[,] kernel =
+        for (int i = 0; i < edges.Count; i++)
         {
-            { 1, 2, 1 },
-            { 2, 4, 2 },
-            { 1, 2, 1 }
-        };
+            if (!outgoing.TryGetValue(edges[i].A, out var list))
+                outgoing[edges[i].A] = list = new List<int>();
 
-        for (int y = 1; y < h - 1; y++)
-        for (int x = 1; x < w - 1; x++)
-        {
-            int sum = 0;
-
-            for (int dy = -1; dy <= 1; dy++)
-            for (int dx = -1; dx <= 1; dx++)
-                sum += src[y + dy, x + dx] * kernel[dy + 1, dx + 1];
-
-            dst[y, x] = (byte)(sum / 16);
+            list.Add(i);
         }
 
-        return dst;
+        var used = new bool[edges.Count];
+        var contours = new List<List<Point>>();
+
+        for (int first = 0; first < edges.Count; first++)
+        {
+            if (used[first])
+                continue;
+
+            var contour = new List<Point>();
+            int current = first;
+            Point start = edges[first].A;
+
+            for (int guard = 0; guard <= edges.Count; guard++)
+            {
+                if (used[current])
+                    break;
+
+                used[current] = true;
+                Segment edge = edges[current];
+                contour.Add(edge.A);
+
+                Point end = edge.B;
+
+                if (end.Equals(start))
+                    break;
+
+                if (!outgoing.TryGetValue(end, out var candidates))
+                    break;
+
+                int next = -1;
+
+                foreach (int candidate in candidates)
+                {
+                    if (!used[candidate])
+                    {
+                        next = candidate;
+                        break;
+                    }
+                }
+
+                if (next < 0)
+                    break;
+
+                current = next;
+            }
+
+            if (contour.Count >= 3)
+                contours.Add(contour);
+        }
+
+        return contours;
+    }
+
+    private static List<Point> SimplifyClosed(
+        List<Point> points,
+        float tolerance)
+    {
+        if (points.Count <= 3)
+            return points;
+
+        // Split the loop at points farthest apart, simplify both arcs,
+        // then combine them back into one closed contour.
+        int farthest = 0;
+        double maxDist = 0;
+
+        for (int i = 1; i < points.Count; i++)
+        {
+            double d = DistanceSquared(
+                points[0].X, points[0].Y,
+                points[i].X, points[i].Y);
+
+            if (d > maxDist)
+            {
+                maxDist = d;
+                farthest = i;
+            }
+        }
+
+        var arc1 = points.Take(farthest + 1).ToList();
+        var arc2 = points.Skip(farthest)
+            .Concat(points.Take(1))
+            .ToList();
+
+        var a = SimplifyOpen(arc1, tolerance);
+        var b = SimplifyOpen(arc2, tolerance);
+
+        var result = new List<Point>(a);
+        if (b.Count > 2)
+            result.AddRange(b.Skip(1).Take(b.Count - 2));
+
+        return result;
+    }
+
+    private static List<Point> SimplifyOpen(
+        List<Point> points,
+        float tolerance)
+    {
+        if (points.Count <= 2)
+            return points;
+
+        double max = 0;
+        int index = 0;
+
+        Point a = points[0];
+        Point b = points[^1];
+
+        for (int i = 1; i < points.Count - 1; i++)
+        {
+            double d = PerpendicularDistanceSquared(points[i], a, b);
+
+            if (d > max)
+            {
+                max = d;
+                index = i;
+            }
+        }
+
+        if (max <= tolerance * tolerance)
+            return new List<Point> { a, b };
+
+        var left = SimplifyOpen(points.Take(index + 1).ToList(), tolerance);
+        var right = SimplifyOpen(points.Skip(index).ToList(), tolerance);
+
+        left.RemoveAt(left.Count - 1);
+        left.AddRange(right);
+        return left;
+    }
+
+    private static double PerpendicularDistanceSquared(
+        Point p, Point a, Point b)
+    {
+        double dx = b.X - a.X;
+        double dy = b.Y - a.Y;
+
+        if (dx == 0 && dy == 0)
+            return DistanceSquared(p.X, p.Y, a.X, a.Y);
+
+        double t = ((p.X - a.X) * dx + (p.Y - a.Y) * dy)
+                   / (dx * dx + dy * dy);
+
+        t = Math.Clamp(t, 0, 1);
+
+        double px = a.X + t * dx;
+        double py = a.Y + t * dy;
+
+        return DistanceSquared(p.X, p.Y, px, py);
+    }
+
+    private static double DistanceSquared(
+        double x1, double y1, double x2, double y2)
+    {
+        double dx = x2 - x1;
+        double dy = y2 - y1;
+        return dx * dx + dy * dy;
     }
 
     private static WriteableBitmap Render(
@@ -396,7 +304,6 @@ public static class VectorImageProcessor
             AlphaFormat.Opaque);
 
         using var fb = bmp.Lock();
-
         unsafe
         {
             byte* ptr = (byte*)fb.Address;
@@ -413,8 +320,10 @@ public static class VectorImageProcessor
 
             foreach (var line in lines)
             {
-                DrawLine(ptr, fb.RowBytes,
-                    line.X1, line.Y1, line.X2, line.Y2);
+                DrawLine(
+                    ptr, fb.RowBytes,
+                    line.X1, line.Y1,
+                    line.X2, line.Y2);
             }
         }
 
@@ -433,6 +342,7 @@ public static class VectorImageProcessor
 
         while (true)
         {
+            // CRT preview color: orange.
             int i = y0 * stride + x0 * 4;
             ptr[i] = 0;
             ptr[i + 1] = 120;
