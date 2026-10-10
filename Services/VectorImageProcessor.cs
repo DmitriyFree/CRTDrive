@@ -12,16 +12,10 @@ public static class VectorImageProcessor
 {
     private readonly record struct Point(int X, int Y);
 
-    private sealed class Segment
+    private sealed class Segment(VectorImageProcessor.Point a, VectorImageProcessor.Point b)
     {
-        public Point A;
-        public Point B;
-
-        public Segment(Point a, Point b)
-        {
-            A = a;
-            B = b;
-        }
+        public Point A = a;
+        public Point B = b;
     }
 
     public static VectorFrame Process(
@@ -46,8 +40,8 @@ public static class VectorImageProcessor
         for (int x = 0; x < w; x++)
             mask[y, x] = gray[y, x] >= threshold;
 
-        // Build the boundary of every foreground pixel.
-        // Each edge lies on the pixel grid, so coordinates range 0..100.
+        // Build boundaries only between foreground and background pixels.
+        // The image border itself is not considered an object boundary.
         var edges = new List<Segment>();
 
         for (int y = 0; y < h; y++)
@@ -56,16 +50,16 @@ public static class VectorImageProcessor
             if (!mask[y, x])
                 continue;
 
-            if (y == 0 || !mask[y - 1, x])
+            if (y > 0 && !mask[y - 1, x])
                 edges.Add(new(new(x, y), new(x + 1, y)));
 
-            if (x == w - 1 || !mask[y, x + 1])
+            if (x < w - 1 && !mask[y, x + 1])
                 edges.Add(new(new(x + 1, y), new(x + 1, y + 1)));
 
-            if (y == h - 1 || !mask[y + 1, x])
+            if (y < h - 1 && !mask[y + 1, x])
                 edges.Add(new(new(x + 1, y + 1), new(x, y + 1)));
 
-            if (x == 0 || !mask[y, x - 1])
+            if (x > 0 && !mask[y, x - 1])
                 edges.Add(new(new(x, y + 1), new(x, y)));
         }
 
@@ -253,7 +247,7 @@ public static class VectorImageProcessor
         }
 
         if (max <= tolerance * tolerance)
-            return new List<Point> { a, b };
+            return [a, b];
 
         var left = SimplifyOpen(points.Take(index + 1).ToList(), tolerance);
         var right = SimplifyOpen(points.Skip(index).ToList(), tolerance);

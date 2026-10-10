@@ -95,7 +95,7 @@ public partial class MainWindow : Window
             {
                 var vector = VectorImageProcessor.Process(
                     processed,
-                    maxSegments: 150,//(int)MaxSegmentsSlider.Value,//also getting stuck
+                    maxSegments: 600,//(int)MaxSegmentsSlider.Value,//also getting stuck
                     threshold: 127,//(byte)VectorThresholdSlider.Value,
                     tolerance: 2);//(float)VectorToleranceSlider.Value); 
 

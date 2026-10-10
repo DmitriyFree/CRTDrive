@@ -206,7 +206,7 @@ static void videoScanTask(void*)
                 (line.y2 - VECTOR_CENTER_Y) * VECTOR_SCALE_Y
             );
             beamOn();
-            drawLine(x1, y1, x2, y2, VECTOR_SETTLE_US);
+            drawLine(x1, -y1, x2, -y2, VECTOR_SETTLE_US);
             beamOff();
         }
 
