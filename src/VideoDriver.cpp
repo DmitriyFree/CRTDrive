@@ -1,6 +1,7 @@
 #include "VideoDriver.h"
 #include "hardware.h"
 #include "common.h"
+#include "drawing.h"
 #include <Arduino.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
@@ -10,7 +11,32 @@ static int16_t xPosition[VIDEO_WIDTH];
 static int16_t yPosition[VIDEO_HEIGHT];
 static uint16_t sourceRowOffset[VIDEO_HEIGHT];
 uint8_t unpackedFrame[VIDEO_PIXELS];
+constexpr uint16_t MAX_VECTOR_SEGMENTS = 600;
 
+struct VectorSegment
+{
+    uint8_t x1;
+    uint8_t y1;
+    uint8_t x2;
+    uint8_t y2;
+};
+
+static VectorSegment vectorSegments[MAX_VECTOR_SEGMENTS];
+static VectorSegment scanSegments[MAX_VECTOR_SEGMENTS];
+
+static uint16_t vectorSegmentCount = 0;
+static volatile uint8_t displayMode = 2; // 2 = raster, 3 = vector
+
+static portMUX_TYPE displayMux = portMUX_INITIALIZER_UNLOCKED;
+
+// 1.0 = approximately the same coordinate span as raster mode.
+// Increase to enlarge; decrease to shrink.
+static constexpr float VECTOR_SCALE_X = 6.0f;
+static constexpr float VECTOR_SCALE_Y = 6.0f;
+
+// Center the vector image around (0, 0).
+static constexpr float VECTOR_CENTER_X = 49.5f;
+static constexpr float VECTOR_CENTER_Y = 49.5f;
 
 static inline void delayNanoseconds(uint32_t ns)
 {
@@ -134,11 +160,58 @@ static void scanFrame(const uint8_t* frame)
     // Yield once per frame rather than once per section.
     vTaskDelay(1);
 }
+
 static void videoScanTask(void*)
 {
     while (true)
     {
-        scanFrame(unpackedFrame);
+        if (displayMode == 2)
+        {
+            // Existing raster scanner remains unchanged.
+            scanFrame(unpackedFrame);
+            continue;
+        }
+
+        // Snapshot the latest vector frame.
+        uint16_t count;
+
+        count = vectorSegmentCount;
+
+        for (uint16_t i = 0; i < count; ++i)
+            scanSegments[i] = vectorSegments[i];
+
+        // Replay the same vector image continuously.
+        if (count == 0)
+        {
+            //beamOff();
+            vTaskDelay(1);
+            continue;
+        }
+
+        
+        for (uint16_t i = 0; i < count; ++i)
+        {
+            const VectorSegment& line = scanSegments[i];
+
+            const int x1 = lroundf(
+                (line.x1 - VECTOR_CENTER_X) * VECTOR_SCALE_X
+            );
+            const int y1 = lroundf(
+                (line.y1 - VECTOR_CENTER_Y) * VECTOR_SCALE_Y
+            );
+            const int x2 = lroundf(
+                (line.x2 - VECTOR_CENTER_X) * VECTOR_SCALE_X
+            );
+            const int y2 = lroundf(
+                (line.y2 - VECTOR_CENTER_Y) * VECTOR_SCALE_Y
+            );
+            beamOn();
+            drawLine(x1, y1, x2, y2, VECTOR_SETTLE_US);
+            beamOff();
+        }
+
+        // Give other tasks a chance to run between replays.
+        vTaskDelay(1);
     }
 }
 void videoInit()
@@ -157,4 +230,35 @@ void videoStart()
         &scanTaskHandle,
         0
     );
+}
+
+void videoSetVectorFrame(const uint8_t* data, uint16_t len)
+{
+    if (data == nullptr || (len % 4) != 0)
+        return;
+
+    const uint16_t count = len / 4;
+
+    if (count > MAX_VECTOR_SEGMENTS)
+        return;
+
+    for (uint16_t i = 0; i < count; ++i)
+    {
+        const uint16_t offset = i * 4;
+
+        vectorSegments[i] = {
+            data[offset],
+            data[offset + 1],
+            data[offset + 2],
+            data[offset + 3]
+        };
+    }
+
+    vectorSegmentCount = count;
+    displayMode = 3;
+}
+
+void videoSetRasterMode()
+{
+    displayMode = 2;
 }

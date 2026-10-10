@@ -319,7 +319,7 @@ public class Esp32ImageSender : IDisposable
         if (_port == null || !_port.IsOpen)
             return;
 
-        if (lines.Count > 16000)
+        if (lines.Count > 600)
             throw new ArgumentException("Too many line segments.");
 
         var data = new byte[lines.Count * 4];

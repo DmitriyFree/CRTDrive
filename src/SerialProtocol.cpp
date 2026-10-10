@@ -56,55 +56,55 @@ void SerialProtocol::update()
 
 
             
-case RXState::LEN_H:
+    case RXState::LEN_H:
 
-    len |= static_cast<uint16_t>(b) << 8;
+        len |= static_cast<uint16_t>(b) << 8;
 
-    // Never allow the payload to exceed the receive buffer.
-    if (len == 0 || len > sizeof(buffer))
-        state = RXState::WAIT_HEADER1;
-    else
-        state = RXState::MODE;
-
-    break;
-
-
-    case RXState::MODE:
-
-        mode = b;
-
-        // Mode 2: existing 100x100 2-bit raster frame.
-        if (mode == 2)
-        {
-            if (len != PACKED2_SIZE)
-            {
-                state = RXState::WAIT_HEADER1;
-                break;
-            }
-        }
-        // Mode 3: vector lines, four bytes per segment.
-        else if (mode == 3)
-        {
-            if (len % 4 != 0)
-            {
-                state = RXState::WAIT_HEADER1;
-                break;
-            }
-        }
-        else
-        {
-            // Keep the existing raster modes unchanged.
-            // If you currently use modes 0 or 1, add their
-            // correct payload-length checks here as needed.
+        // Never allow the payload to exceed the receive buffer.
+        if (len == 0 || len > sizeof(buffer))
             state = RXState::WAIT_HEADER1;
-            break;
-        }
-
-        checksum = mode;
-        pos = 0;
-        state = RXState::DATA;
+        else
+            state = RXState::MODE;
 
         break;
+
+
+        case RXState::MODE:
+
+            mode = b;
+
+            // Mode 2: existing 100x100 2-bit raster frame.
+            if (mode == 2)
+            {
+                if (len != PACKED2_SIZE)
+                {
+                    state = RXState::WAIT_HEADER1;
+                    break;
+                }
+            }
+            // Mode 3: vector lines, four bytes per segment.
+            else if (mode == 3)
+            {
+                if (len % 4 != 0)
+                {
+                    state = RXState::WAIT_HEADER1;
+                    break;
+                }
+            }
+            else
+            {
+                // Keep the existing raster modes unchanged.
+                // If you currently use modes 0 or 1, add their
+                // correct payload-length checks here as needed.
+                state = RXState::WAIT_HEADER1;
+                break;
+            }
+
+            checksum = mode;
+            pos = 0;
+            state = RXState::DATA;
+
+            break;
 
 
     case RXState::DATA:

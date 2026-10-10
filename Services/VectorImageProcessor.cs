@@ -111,11 +111,10 @@ public static class VectorImageProcessor
 
         // Safety cap. Normally simplification should reach this first.
         if (lines.Count > maxSegments)
-            lines = lines
+            lines = [.. lines
                 .OrderByDescending(l =>
                     DistanceSquared(l.X1, l.Y1, l.X2, l.Y2))
-                .Take(maxSegments)
-                .ToList();
+                .Take(maxSegments)];
 
         return new VectorFrame
         {

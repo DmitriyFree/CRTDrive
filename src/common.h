@@ -30,4 +30,4 @@ static constexpr int SETTLE_US = 40;
 static constexpr int DWELL_STEP_nS = 500;
 static constexpr int QUADRANTS = 32;
 
-#define SKIP_BLACK_PIXELS 1
+static constexpr int VECTOR_SETTLE_US = 5;
