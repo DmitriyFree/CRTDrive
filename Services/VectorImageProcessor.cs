@@ -17,6 +17,20 @@ public static class VectorImageProcessor
         public Point A = a;
         public Point B = b;
     }
+    private sealed class Contour
+    {
+        public List<Point> Points { get; }
+        public bool IsClosed { get; }
+
+        public Contour(List<Point> points, bool isClosed)
+        {
+            Points = points;
+            IsClosed = isClosed;
+        }
+
+        public int SegmentCount =>
+            IsClosed ? Points.Count : Math.Max(0, Points.Count - 1);
+    }
 
     public static VectorFrame Process(
         byte[,] gray,
@@ -65,17 +79,24 @@ public static class VectorImageProcessor
 
         var contours = TraceContours(edges);
 
-        // Simplify the contours more aggressively until the budget fits.
         float currentTolerance = tolerance;
-        List<List<Point>> simplified;
+        List<Contour> simplified;
 
         while (true)
         {
-            simplified = [.. contours
-                .Select(c => SimplifyClosed(c, currentTolerance))
-                .Where(c => c.Count >= 2)];
+            simplified = contours
+                .Select(c =>
+                {
+                    List<Point> points = c.IsClosed
+                        ? SimplifyClosed(c.Points, currentTolerance)
+                        : SimplifyOpen(c.Points, currentTolerance);
 
-            int count = simplified.Sum(c => c.Count);
+                    return new Contour(points, c.IsClosed);
+                })
+                .Where(c => c.SegmentCount > 0)
+                .ToList();
+
+            int count = simplified.Sum(c => c.SegmentCount);
 
             if (count <= maxSegments || currentTolerance >= 200)
                 break;
@@ -84,17 +105,20 @@ public static class VectorImageProcessor
                 ? 0.5f
                 : currentTolerance * 1.5f;
         }
-        
+
         // Convert full-resolution contour coordinates into byte coordinates.
         // Contour extraction and simplification happen before this conversion.
         var lines = new List<Esp32ImageSender.LineSegment>();
 
         foreach (var contour in simplified)
         {
-            for (int i = 0; i < contour.Count; i++)
+            var points = contour.Points;
+            int count = contour.IsClosed ? points.Count : points.Count - 1;
+
+            for (int i = 0; i < count; i++)
             {
-                Point a = contour[i];
-                Point b = contour[(i + 1) % contour.Count];
+                Point a = points[i];
+                Point b = points[(i + 1) % points.Count];
 
                 byte x1 = (byte)Math.Clamp(
                     (int)Math.Round(a.X * 255.0 / w), 0, 255);
@@ -108,16 +132,7 @@ public static class VectorImageProcessor
                 lines.Add(new(x1, y1, x2, y2));
             }
         }
-
-        // Safety cap.
-        if (lines.Count > maxSegments)
-        {
-            lines = [.. lines
-                .OrderByDescending(l =>
-                    DistanceSquared(l.X1, l.Y1, l.X2, l.Y2))
-                .Take(maxSegments)];
-        }
-
+        
         // Coordinates now occupy a 256x256 preview space.
         return new VectorFrame
         {
@@ -126,29 +141,36 @@ public static class VectorImageProcessor
         };
     }
 
-    private static List<List<Point>> TraceContours(List<Segment> edges)
+    private static List<Contour> TraceContours(List<Segment> edges)
     {
         var outgoing = new Dictionary<Point, List<int>>();
+        var incomingCount = new Dictionary<Point, int>();
 
         for (int i = 0; i < edges.Count; i++)
         {
-            if (!outgoing.TryGetValue(edges[i].A, out var list))
-                outgoing[edges[i].A] = list = new List<int>();
+            Segment edge = edges[i];
+
+            if (!outgoing.TryGetValue(edge.A, out var list))
+                outgoing[edge.A] = list = new List<int>();
 
             list.Add(i);
+
+            incomingCount.TryGetValue(edge.B, out int count);
+            incomingCount[edge.B] = count + 1;
         }
 
         var used = new bool[edges.Count];
-        var contours = new List<List<Point>>();
+        var contours = new List<Contour>();
 
-        for (int first = 0; first < edges.Count; first++)
+        void TraceFrom(int first)
         {
             if (used[first])
-                continue;
+                return;
 
-            var contour = new List<Point>();
-            int current = first;
+            var points = new List<Point>();
             Point start = edges[first].A;
+            int current = first;
+            bool closed = false;
 
             for (int guard = 0; guard <= edges.Count; guard++)
             {
@@ -156,13 +178,17 @@ public static class VectorImageProcessor
                     break;
 
                 used[current] = true;
+
                 Segment edge = edges[current];
-                contour.Add(edge.A);
+                points.Add(edge.A);
 
                 Point end = edge.B;
 
                 if (end.Equals(start))
+                {
+                    closed = true;
                     break;
+                }
 
                 if (!outgoing.TryGetValue(end, out var candidates))
                     break;
@@ -184,8 +210,27 @@ public static class VectorImageProcessor
                 current = next;
             }
 
-            if (contour.Count >= 3)
-                contours.Add(contour);
+            if (points.Count >= 2)
+                contours.Add(new Contour(points, closed));
+        }
+
+        // First trace open paths starting at vertices with no incoming edge.
+        for (int i = 0; i < edges.Count; i++)
+        {
+            if (used[i])
+                continue;
+
+            Point start = edges[i].A;
+
+            if (!incomingCount.ContainsKey(start))
+                TraceFrom(i);
+        }
+
+        // Trace any remaining paths and closed loops.
+        for (int i = 0; i < edges.Count; i++)
+        {
+            if (!used[i])
+                TraceFrom(i);
         }
 
         return contours;
