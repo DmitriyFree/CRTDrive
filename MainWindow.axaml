@@ -2,16 +2,14 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="CrtDrive.MainWindow"
         Title="CrtDrive"
-        Width="420" Height="350">
+        Width="420" Height="450">
     
     <StackPanel Margin="10" Spacing="10">
         <StackPanel Orientation="Horizontal" Spacing="10">
-
             <StackPanel>
                 <TextBlock Text="Brightness"/>
                 <Slider x:Name="BrightnessSlider" Minimum="-1" Maximum="1" Value="0"/>
             </StackPanel>
-
             <StackPanel>
                 <TextBlock Text="Contrast"/>
                 <Slider x:Name="ContrastSlider" Minimum="0.5" Maximum="3" Value="1"/>
@@ -43,33 +41,34 @@
                 <TextBlock Text="AdaptiveExposure"/>
                 <Slider x:Name="AdaptiveExposureSlider" Minimum="0" Maximum="5"  Value="0.5"/>
             </StackPanel>
+        </StackPanel>
 
-            
+        <StackPanel Orientation="Horizontal" Spacing="10">
             <StackPanel Orientation="Horizontal" Spacing="10">
                 <CheckBox x:Name="VectorModeCheckBox"
-                        Content="Vector mode"
+                        Content="Vector"
                         IsChecked="False"
                         VerticalAlignment="Center"/>
 
                 <StackPanel>
                     <TextBlock Text="Max segments"/>
                     <Slider x:Name="MaxSegmentsSlider"
-                            Minimum="10" Maximum="300"
-                            Value="100" Width="120"/>
+                            Minimum="10" Maximum="600"
+                            Value="200" Width="80"/>
                 </StackPanel>
 
                 <StackPanel>
                     <TextBlock Text="Vector threshold"/>
                     <Slider x:Name="VectorThresholdSlider"
                             Minimum="0" Maximum="255"
-                            Value="170" Width="120"/>
+                            Value="170" Width="80"/>
                 </StackPanel>
 
                 <StackPanel>
                     <TextBlock Text="Simplify"/>
                     <Slider x:Name="VectorToleranceSlider"
                             Minimum="0.5" Maximum="5"
-                            Value="1.5" Width="120"/>
+                            Value="1.5" Width="80"/>
                 </StackPanel>
             </StackPanel>
             

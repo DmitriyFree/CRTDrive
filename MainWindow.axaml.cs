@@ -1,10 +1,10 @@
+
 using Avalonia.Controls;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CrtDrive.Services;
-using Avalonia.Media.Imaging;
 using System;
 using System.Threading;
-using Avalonia;
 using System.Threading.Tasks;
 
 namespace CrtDrive;
@@ -13,25 +13,39 @@ public partial class MainWindow : Window
 {
     private readonly ScreenCaptureService _capture = new();
     private readonly Esp32ImageSender _sender = new();
-    private WriteableBitmap? _bitmap;
-    private volatile byte[]? _latestRawFrame;
-    private volatile bool _framePending = false;
-    private int _isProcessing = 0; // 0 = free, 1 = busy
-    private readonly ImageSettings _settings = new();
-    
 
-    private float _brightness;
-    private float _contrast;
-    private byte _threshold;
-    private int _erode;
-    private int _dilate;
-    private float _edgeStrength = 2;
-    private float _gamma = 1f;
-    private float _adaptiveExposure = 0.5f;
+    private readonly object _frameLock = new();
+    private byte[]? _latestRawFrame;
+    private bool _framePending;
+    private int _isProcessing;
+
+    private bool _closed;
+
+    private sealed record FrameSettings(
+        float Brightness,
+        float Contrast,
+        byte Threshold,
+        int Erode,
+        int Dilate,
+        float EdgeStrength,
+        float Gamma,
+        float AdaptiveExposure,
+        bool VectorMode,
+        int MaxSegments,
+        byte VectorThreshold,
+        float VectorTolerance);
 
     public MainWindow()
     {
         InitializeComponent();
+
+        Closed += (_, _) =>
+        {
+            _closed = true;
+            _capture.FrameReceived -= OnFrame;
+            _capture.Stop();
+            _sender.Dispose();
+        };
 
         _capture.FrameReceived += OnFrame;
         _capture.Start();
@@ -39,114 +53,149 @@ public partial class MainWindow : Window
 
     private void OnFrame(byte[] frame)
     {
-        _latestRawFrame = frame;
-        _framePending = true;
+        if (_closed)
+            return;
 
-        // start worker if not running
-        if (Interlocked.CompareExchange(ref _isProcessing, 1, 0) == 0)
+        lock (_frameLock)
         {
-            Task.Run(ProcessLoop);
+            // Keep only the newest frame waiting to be processed.
+            _latestRawFrame = (byte[])frame.Clone();
+            _framePending = true;
+        }
+
+        StartWorkerIfNeeded();
+    }
+
+    private void StartWorkerIfNeeded()
+    {
+        if (Interlocked.CompareExchange(ref _isProcessing, 1, 0) == 0)
+            _ = Task.Run(ProcessLoop);
+    }
+
+    private async Task ProcessLoop()
+    {
+        try
+        {
+            while (!_closed)
+            {
+                byte[]? frame;
+
+                lock (_frameLock)
+                {
+                    if (!_framePending)
+                        break;
+
+                    frame = _latestRawFrame;
+                    _framePending = false;
+                }
+
+                if (frame == null)
+                    continue;
+
+                // Read all Avalonia controls on the UI thread.
+                FrameSettings settings =
+                    await Dispatcher.UIThread.InvokeAsync(ReadSettings);
+
+                if (_closed)
+                    break;
+
+                int width = _capture.Width;
+                int height = _capture.Height;
+
+                // This bitmap belongs to this frame; it is not being
+                // modified while the UI displays it.
+                WriteableBitmap sourceBitmap =
+                    RawFrameConverter.Convert(frame, width, height);
+
+                var imageSettings = new ImageSettings
+                {
+                    Brightness = settings.Brightness,
+                    Contrast = settings.Contrast,
+                    Threshold = settings.Threshold,
+                    Erode = settings.Erode,
+                    Dilate = settings.Dilate,
+                    EdgeStrength = settings.EdgeStrength,
+                    Gamma = settings.Gamma,
+                    AdaptiveExposure = settings.AdaptiveExposure
+                };
+
+                byte[,] processed = ImageProcessor.To8Bit(
+                    sourceBitmap, 100, 100, imageSettings);
+
+                WriteableBitmap processedBitmap;
+
+                if (settings.VectorMode)
+                {
+                    var vector = VectorImageProcessor.Process(
+                        processed,
+                        maxSegments: settings.MaxSegments,
+                        threshold: settings.VectorThreshold,
+                        tolerance: settings.VectorTolerance);
+
+                    if (_sender._port?.IsOpen == true)
+                        _sender.SendVectorLines(vector.Lines);
+
+                    processedBitmap = vector.Preview;
+                }
+                else
+                {
+                    if (_sender._port?.IsOpen == true)
+                        _sender.SendImage2Bit(processed);
+
+                    processedBitmap =
+                        ImageProcessor.RenderDisplay8Bit(processed);
+                }
+
+                // Only update Avalonia controls on the UI thread.
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    if (_closed)
+                        return;
+
+                    OriginalImage.Source = sourceBitmap;
+                    OriginalImage.InvalidateVisual();
+
+                    ProcessedImage.Source = processedBitmap;
+                    ProcessedImage.InvalidateVisual();
+                }, DispatcherPriority.Background);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Frame processing error: {ex}");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _isProcessing, 0);
+
+            // Catch a frame that arrived as the worker was stopping.
+            bool pending;
+
+            lock (_frameLock)
+                pending = _framePending;
+
+            if (pending && !_closed)
+                StartWorkerIfNeeded();
         }
     }
-    private void ProcessLoop()
+
+    private FrameSettings ReadSettings()
     {
-        while (true)
-        {
-            if (!_framePending)
-                break;
-
-            _framePending = false;
-
-            var frame = _latestRawFrame;
-            if (frame == null)
-                break;
-
-            // 🔥 SKIP if newer frame already arrived
-            if (_framePending)
-                continue;
-
-            _bitmap ??= new WriteableBitmap(
-                new PixelSize(_capture.Width, _capture.Height),
-                new Vector(96, 96),
-                Avalonia.Platform.PixelFormat.Bgra8888,
-                Avalonia.Platform.AlphaFormat.Opaque
-            );
-
-            RawFrameConverter.CopyInto(_bitmap, frame);
-
-            var settings = new ImageSettings
-            {
-                Brightness = _brightness,
-                Contrast = _contrast,
-                Threshold = _threshold,
-                Erode = _erode,
-                Dilate = _dilate,
-                EdgeStrength = _edgeStrength,
-                Gamma = _gamma,
-                AdaptiveExposure = _adaptiveExposure
-            };
-
-            var processed = ImageProcessor.To8Bit(
-                _bitmap, 100, 100, settings);
-           
-            bool vectorMode = true;//VectorModeCheckBox.IsChecked == true; //gets stuck somehow
-            
-            if (vectorMode)
-            {
-                var vector = VectorImageProcessor.Process(
-                    processed,
-                    maxSegments: 600,//(int)MaxSegmentsSlider.Value,//also getting stuck
-                    threshold: 127,//(byte)VectorThresholdSlider.Value,
-                    tolerance: 2);//(float)VectorToleranceSlider.Value); 
-
-                if (_sender._port?.IsOpen == true)
-                    _sender.SendVectorLines(vector.Lines);
-                Console.WriteLine(vector.Lines.Count);//not getting here
-                Dispatcher.UIThread.Post(() =>
-                {
-                    OriginalImage.Source = _bitmap;
-                    ProcessedImage.Source = vector.Preview;
-                });
-            }
-            else
-            {
-                if (_sender._port?.IsOpen == true)
-                    _sender.SendImage2Bit(processed);
-                
-                Dispatcher.UIThread.Post(() =>
-                {
-                    OriginalImage.Source = _bitmap;
-                    ProcessedImage.Source =
-                        ImageProcessor.RenderDisplay8Bit(processed);
-                });
-            }
-
-            Dispatcher.UIThread.Post(() =>
-            {
-                OriginalImage.Source = _bitmap;
-                OriginalImage.InvalidateVisual();
-                //if (processed != null)
-                //    ProcessedImage.Source = ImageProcessor.RenderDisplay8Bit(processed);
-
-                _brightness = (float)BrightnessSlider.Value;
-                _contrast = (float)ContrastSlider.Value;
-                _threshold = (byte)ThresholdSlider.Value;
-                _erode = (int)ErodeSlider.Value;
-                _dilate = (int)DilateSlider.Value;
-                _edgeStrength = (float)EdgeStrengthSlider.Value;
-                _adaptiveExposure = (float)AdaptiveExposureSlider.Value;
-                _gamma = (float)GammaSlider.Value;
-
-            }, DispatcherPriority.Background);
-        }
-
-        Interlocked.Exchange(ref _isProcessing, 0);
-
-        // 🔥 CRITICAL: restart if a frame arrived while we were stopping
-        if (_framePending &&
-            Interlocked.CompareExchange(ref _isProcessing, 1, 0) == 0)
-        {
-            Task.Run(ProcessLoop);
-        }
+        return new FrameSettings(
+            Brightness: (float)BrightnessSlider.Value,
+            Contrast: (float)ContrastSlider.Value,
+            Threshold: (byte)Math.Clamp(
+                (int)Math.Round(ThresholdSlider.Value), 0, 255),
+            Erode: (int)ErodeSlider.Value,
+            Dilate: (int)DilateSlider.Value,
+            EdgeStrength: (float)EdgeStrengthSlider.Value,
+            Gamma: (float)GammaSlider.Value,
+            AdaptiveExposure: (float)AdaptiveExposureSlider.Value,
+            VectorMode: VectorModeCheckBox.IsChecked == true,
+            MaxSegments: (int)MaxSegmentsSlider.Value,
+            VectorThreshold: (byte)Math.Clamp(
+                (int)Math.Round(VectorThresholdSlider.Value), 0, 255),
+            VectorTolerance: (float)VectorToleranceSlider.Value
+        );
     }
 }
