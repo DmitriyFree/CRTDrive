@@ -23,6 +23,12 @@ public static class ImageProcessor
 
         return Downscale(gray, outW, outH, g => g);
     }
+    public static byte[,] ToGray300(
+        WriteableBitmap bitmap,
+        ImageSettings settings)
+    {
+        return ProcessGray(bitmap, settings);
+    }
 
     // ============================================================
     // RENDER

@@ -119,15 +119,15 @@ public partial class MainWindow : Window
                     AdaptiveExposure = settings.AdaptiveExposure
                 };
 
-                byte[,] processed = ImageProcessor.To8Bit(
-                    sourceBitmap, 100, 100, imageSettings);
-
                 WriteableBitmap processedBitmap;
 
                 if (settings.VectorMode)
                 {
+                    byte[,] vectorInput = ImageProcessor.ToGray300(
+                        sourceBitmap, imageSettings);
+
                     var vector = VectorImageProcessor.Process(
-                        processed,
+                        vectorInput,
                         maxSegments: settings.MaxSegments,
                         threshold: settings.VectorThreshold,
                         tolerance: settings.VectorTolerance);
@@ -139,6 +139,9 @@ public partial class MainWindow : Window
                 }
                 else
                 {
+                    byte[,] processed = ImageProcessor.To8Bit(
+                        sourceBitmap, 100, 100, imageSettings);
+
                     if (_sender._port?.IsOpen == true)
                         _sender.SendImage2Bit(processed);
 

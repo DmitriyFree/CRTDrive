@@ -27,8 +27,8 @@ public static class VectorImageProcessor
         int h = gray.GetLength(0);
         int w = gray.GetLength(1);
 
-        if (w != 100 || h != 100)
-            throw new ArgumentException("Expected a 100x100 image.");
+        if (w < 1 || h < 1)
+            throw new ArgumentException("Image dimensions must be positive.");
 
         maxSegments = Math.Max(0, maxSegments);
         tolerance = Math.Max(0, tolerance);
@@ -84,8 +84,9 @@ public static class VectorImageProcessor
                 ? 0.5f
                 : currentTolerance * 1.5f;
         }
-
-        // Convert each contour into CRT line segments.
+        
+        // Convert full-resolution contour coordinates into byte coordinates.
+        // Contour extraction and simplification happen before this conversion.
         var lines = new List<Esp32ImageSender.LineSegment>();
 
         foreach (var contour in simplified)
@@ -95,25 +96,33 @@ public static class VectorImageProcessor
                 Point a = contour[i];
                 Point b = contour[(i + 1) % contour.Count];
 
-                lines.Add(new(
-                    (byte)Math.Clamp(a.X, 0, 99),
-                    (byte)Math.Clamp(a.Y, 0, 99),
-                    (byte)Math.Clamp(b.X, 0, 99),
-                    (byte)Math.Clamp(b.Y, 0, 99)));
+                byte x1 = (byte)Math.Clamp(
+                    (int)Math.Round(a.X * 255.0 / w), 0, 255);
+                byte y1 = (byte)Math.Clamp(
+                    (int)Math.Round(a.Y * 255.0 / h), 0, 255);
+                byte x2 = (byte)Math.Clamp(
+                    (int)Math.Round(b.X * 255.0 / w), 0, 255);
+                byte y2 = (byte)Math.Clamp(
+                    (int)Math.Round(b.Y * 255.0 / h), 0, 255);
+
+                lines.Add(new(x1, y1, x2, y2));
             }
         }
 
-        // Safety cap. Normally simplification should reach this first.
+        // Safety cap.
         if (lines.Count > maxSegments)
+        {
             lines = [.. lines
                 .OrderByDescending(l =>
                     DistanceSquared(l.X1, l.Y1, l.X2, l.Y2))
                 .Take(maxSegments)];
+        }
 
+        // Coordinates now occupy a 256x256 preview space.
         return new VectorFrame
         {
             Lines = lines,
-            Preview = Render(lines, w, h)
+            Preview = Render(lines, 256, 256)
         };
     }
 

@@ -29,14 +29,11 @@ static volatile uint8_t displayMode = 2; // 2 = raster, 3 = vector
 
 static portMUX_TYPE displayMux = portMUX_INITIALIZER_UNLOCKED;
 
-// 1.0 = approximately the same coordinate span as raster mode.
-// Increase to enlarge; decrease to shrink.
-static constexpr float VECTOR_SCALE_X = 6.0f;
-static constexpr float VECTOR_SCALE_Y = 6.0f;
-
 // Center the vector image around (0, 0).
-static constexpr float VECTOR_CENTER_X = 49.5f;
-static constexpr float VECTOR_CENTER_Y = 49.5f;
+constexpr float VECTOR_CENTER_X = 127.5f;
+constexpr float VECTOR_CENTER_Y = 127.5f;
+constexpr float VECTOR_SCALE_X = 3.0f * 200.0f / 255.0f;
+constexpr float VECTOR_SCALE_Y = 3.0f * 200.0f / 255.0f;
 
 static inline void delayNanoseconds(uint32_t ns)
 {
