@@ -32,8 +32,8 @@ static portMUX_TYPE displayMux = portMUX_INITIALIZER_UNLOCKED;
 // Center the vector image around (0, 0).
 constexpr float VECTOR_CENTER_X = 127.5f;
 constexpr float VECTOR_CENTER_Y = 127.5f;
-constexpr float VECTOR_SCALE_X = 3.0f * 200.0f / 255.0f;
-constexpr float VECTOR_SCALE_Y = 3.0f * 200.0f / 255.0f;
+constexpr float VECTOR_SCALE_X = 3.5f * 200.0f / 255.0f;
+constexpr float VECTOR_SCALE_Y = 3.5f * 200.0f / 255.0f;
 
 static inline void delayNanoseconds(uint32_t ns)
 {
