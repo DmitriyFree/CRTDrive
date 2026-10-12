@@ -6,48 +6,128 @@
 #include "common.h"
 #include "hardware.h"
 #include "SerialProtocol.h"
+#include <cstdio>
 
 SerialProtocol SerialProto;
 
-// -----------------------------------------------------------------------------
-// Demo configuration
-// -----------------------------------------------------------------------------
-
 constexpr uint32_t VIDEO_TIMEOUT_MS = 5000;
-constexpr uint32_t PATTERN_DURATION_MS = 2000;
-//clocks
-static unsigned long startTime = millis();
-int hours;
-int minutes;
-int seconds;
+constexpr uint32_t TEST_DURATION_MS = 2000;
 
-enum class DemoMode : uint8_t
-{
-    Idle,
-    Video
-};
+static uint32_t lastFrameMillis = 0;
+static bool showingVideo = false;
+static uint32_t testStartMillis = 0;
+static uint16_t currentTest = 0;
 
-enum class Pattern : uint8_t
-{
-    //Square,
-    //Circle,
-    //Triangle,
-    //Cross,
-    AnalogClock,
-    //Text,
-    //Chessboard,
-    Count
-};
-
-static volatile DemoMode demoMode = DemoMode::Idle;
-static volatile uint32_t lastFrameMillis = 0;
-
-static Pattern currentPattern = Pattern::AnalogClock;
-static uint32_t patternStartMillis = 0;
-static bool patternInitialized = false;
+static int clockHours = 10;
+static int clockMinutes = 0;
+static int clockSeconds = 0;
+static uint32_t clockStartMillis = 0;
 
 // -----------------------------------------------------------------------------
-// Frame reception
+// Test wrappers
+// -----------------------------------------------------------------------------
+
+static void testSquare()
+{
+    drawSquare(150, DELAY_US);
+}
+
+static void testCircle()
+{
+    drawCircle(200, DELAY_US);
+}
+
+static void testTriangle()
+{
+    drawTriangle(180, DELAY_US);
+}
+
+static void testCross()
+{
+    drawCross(200, DELAY_US);
+}
+
+static void testFilledSquare()
+{
+    drawFilledSquare(100);
+}
+
+static void testDiamond()
+{
+    drawDiamond(180, DELAY_US);
+}
+
+static void testAnalogClock()
+{
+    const uint32_t elapsed = (millis() - clockStartMillis) / 50;
+
+    clockHours = 10 + (elapsed / 3600) % 12;
+    clockMinutes = (elapsed / 60) % 60;
+    clockSeconds = elapsed % 60;
+
+    drawAnalogClock(
+        clockHours, clockMinutes, clockSeconds, DELAY_US
+    );
+}
+
+static void testDigitalClock()
+{
+    const uint32_t elapsed = (millis() - clockStartMillis) / 50;
+
+    clockHours = 10 + (elapsed / 3600) % 12;
+    clockMinutes = (elapsed / 60) % 60;
+    clockSeconds = elapsed % 60;
+
+    drawClock(clockHours, clockMinutes, clockSeconds);
+}
+
+static void testText()
+{
+    drawText("CRT", -100, -40, 20, DELAY_US);
+}
+
+static void testRotatingCube()
+{
+    drawRotatingCube(-50, -50, 200, DELAY_US);
+}
+
+static void testChessboard()
+{
+    drawChess(5);
+}
+
+// -----------------------------------------------------------------------------
+// Test registry
+// -----------------------------------------------------------------------------
+
+struct DemoTest
+{
+    const char* name;
+    void (*render)();
+    DisplayProfile profile;
+    bool usesVideoScanner;
+};
+
+static const DemoTest tests[] = {
+    // Uncomment or comment entries to choose the test sequence.
+
+     {"Square",        testSquare,        DisplayProfile::Vector, false},
+     {"Circle",        testCircle,        DisplayProfile::Vector, false},
+     {"Triangle",      testTriangle,      DisplayProfile::Vector, false},
+     {"Cross",         testCross,         DisplayProfile::Vector, false},
+     {"Filled square", testFilledSquare,  DisplayProfile::Vector, false},
+     {"Diamond",       testDiamond,       DisplayProfile::Vector, false},
+     {"Analog clock",  testAnalogClock,   DisplayProfile::Vector, false},
+     {"Digital clock", testDigitalClock,  DisplayProfile::Vector, false},
+     {"Text",          testText,          DisplayProfile::Vector, false},
+     {"Rotating cube", testRotatingCube,  DisplayProfile::Vector, false},
+     {"Chessboard",    testChessboard,    DisplayProfile::Raster,  true},
+};
+
+constexpr uint16_t TEST_COUNT = sizeof(tests) / sizeof(tests[0]);
+
+// -----------------------------------------------------------------------------
+// Serial reception
 // -----------------------------------------------------------------------------
 
 void onFrameReceived(uint8_t* buf, uint16_t len, uint8_t mode)
@@ -73,7 +153,6 @@ void onFrameReceived(uint8_t* buf, uint16_t len, uint8_t mode)
         for (int i = 0; i < VIDEO_PIXELS; ++i)
         {
             const uint8_t packed = buf[i >> 2];
-
             const uint8_t value =
                 (packed >> ((i & 3) * 2)) & 0x03;
 
@@ -87,15 +166,14 @@ void onFrameReceived(uint8_t* buf, uint16_t len, uint8_t mode)
     if (validFrame)
     {
         lastFrameMillis = millis();
-        demoMode = DemoMode::Video;
+        showingVideo = true;
+
+        // The scanner selects Raster or Vector profile.
+        videoEnable();
 
         digitalWrite(2, !digitalRead(2));
     }
 }
-
-// -----------------------------------------------------------------------------
-// Serial reception task
-// -----------------------------------------------------------------------------
 
 static void serialTask(void*)
 {
@@ -107,102 +185,45 @@ static void serialTask(void*)
 }
 
 // -----------------------------------------------------------------------------
-// Framebuffer test pattern
+// Demo sequence
 // -----------------------------------------------------------------------------
 
-static void fillChessboard(int cells)
+static void startTest(uint16_t index)
 {
-    cells = max(cells, 1);
+    if (index >= TEST_COUNT)
+        index = 0;
 
-    for (int y = 0; y < VIDEO_HEIGHT; ++y)
-    {
-        for (int x = 0; x < VIDEO_WIDTH; ++x)
-        {
-            const bool lit =
-                ((x * cells / VIDEO_WIDTH) +
-                 (y * cells / VIDEO_HEIGHT)) & 1;
-
-            unpackedFrame[y * VIDEO_WIDTH + x] =
-                lit ? 255 : 0;
-        }
-    }
-}
-
-// -----------------------------------------------------------------------------
-// Idle test patterns
-// -----------------------------------------------------------------------------
-
-static void beginPattern(Pattern pattern)
-{
-    currentPattern = pattern;
-    patternStartMillis = millis();
-    patternInitialized = false;
-
-    // Direct-drawn patterns must not compete with the raster scanner.
+    // Stop video output before direct drawing.
     videoDisable();
 
-    /*if (currentPattern == Pattern::Chessboard)
+    currentTest = index;
+
+    const DemoTest& test = tests[currentTest];
+
+    if (!setDisplayProfile(test.profile))
     {
-        fillChessboard(5);
-        videoSetRasterMode();
-        patternInitialized = true;
-    }*/
-}
-
-static void advancePattern()
-{
-    const uint8_t next =
-        (static_cast<uint8_t>(currentPattern) + 1) %
-        static_cast<uint8_t>(Pattern::Count);
-
-    beginPattern(static_cast<Pattern>(next));
-}
-
-static void renderIdlePattern()
-{
-    if (millis() - patternStartMillis >= PATTERN_DURATION_MS)
-    {
-        advancePattern();
+        Serial.printf("Failed to set profile for test: %s\n", test.name);
         return;
     }
-    beamOn();
-    switch (currentPattern)
+
+    if (test.usesVideoScanner)
     {
-        /*case Pattern::Square:
-            drawSquare(250, DELAY_US);
-            break;
-
-        case Pattern::Circle:
-            drawCircle(250, DELAY_US);
-            break;
-
-        case Pattern::Triangle:
-            drawTriangle(250, DELAY_US);
-            break;
-
-        case Pattern::Cross:
-            drawCross(250, DELAY_US);
-            break;
-
-        case Pattern::Text:
-            drawText("CRT", -250, -100, 30, 50*DELAY_US);
-            break;*/
-
-        case Pattern::AnalogClock:
-            drawAnalogClock(hours, minutes, seconds, DELAY_US);
-            break;
-
-        /*case Pattern::Chessboard:
-            // Raster video task renders the framebuffer.
-            videoSetRasterMode();
-            videoEnable();
-            vTaskDelay(1);
-            break;*/
+        test.render();
+        videoEnable();
     }
+
+    testStartMillis = millis();
+
+    Serial.printf("Test: %s\n", test.name);
+}
+
+static void nextTest()
+{
+    startTest((currentTest + 1) % TEST_COUNT);
 }
 
 // -----------------------------------------------------------------------------
-// Setup
+// Setup / loop
 // -----------------------------------------------------------------------------
 
 void setup()
@@ -213,13 +234,9 @@ void setup()
     Serial.begin(3000000);
 
     hardwareInit();
-    setDisplayProfile(DisplayProfile::Raster);
 
     videoInit();
     videoStart();
-    videoEnable();
-
-    beamOn();
 
     SerialProto.begin(Serial, onFrameReceived);
 
@@ -232,38 +249,50 @@ void setup()
         nullptr,
         1
     );
-}
 
-// -----------------------------------------------------------------------------
-// Main demo state machine
-// -----------------------------------------------------------------------------
+    clockStartMillis = millis();
+    startTest(0);
+}
 
 void loop()
 {
-    /*const uint32_t now = millis();
-    const unsigned long elapsed = (millis() - startTime) / 100;//intentional fast demo
-    hours   = (elapsed / 3600) % 24;
-    minutes = (elapsed / 60) % 60;
-    seconds = elapsed % 60;
+    const uint32_t now = millis();
 
-    if (demoMode == DemoMode::Video)
+    if (showingVideo)
     {
         if (now - lastFrameMillis >= VIDEO_TIMEOUT_MS)
         {
-            demoMode = DemoMode::Idle;
-            beginPattern(Pattern::AnalogClock);
+            showingVideo = false;
+            videoDisable();
+
+            startTest(currentTest);
         }
         else
         {
             delay(1);
-            return;
         }
+
+        return;
     }
 
-    renderIdlePattern();*/
+    const DemoTest& test = tests[currentTest];
 
-    //setPoint(70,70);
-    //drawSquare(150, DELAY_US);
-    //drawText("CRT", -150, -50, 20, 1000*DELAY_US);
-    //delay(500);
+    if (now - testStartMillis >= TEST_DURATION_MS)
+    {
+        nextTest();
+        return;
+    }
+
+    if (test.usesVideoScanner)
+    {
+        // The scanner renders the prepared framebuffer.
+        delay(1);
+        return;
+    }
+
+    if (!setDisplayProfile(test.profile))
+        return;
+
+    beamOn();
+    test.render();
 }

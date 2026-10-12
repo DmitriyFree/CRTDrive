@@ -2,6 +2,7 @@
 #include "hardware.h"
 #include "font.h"
 #include "common.h"
+#include "VideoDriver.h"
 
 #include <Arduino.h>
 #include <math.h>
@@ -12,7 +13,7 @@ void drawLine(
     int y1,
     int x2,
     int y2,
-    int delayUs = 0
+    int delayUs
 )
 {
     const int dx = abs(x2 - x1);
@@ -73,7 +74,17 @@ void drawCircle(int radius, int delayUs)
 }
 void drawFilledSquare(int size)
 {
-    //todo raster square in the middle 1/2 screen size
+    size = abs(size);
+    if (size == 0)
+        return;
+
+    for (int y = -size; y <= size; ++y)
+    {
+        if ((y + size) & 1)
+            drawLine(size, y, -size, y);
+        else
+            drawLine(-size, y, size, y);
+    }
 }
 void drawCross(int size, int delayUs)
 {
@@ -98,13 +109,30 @@ void drawConcentricCircles(int delayUs)
     drawCircle(50, delayUs);
     drawCircle(75, delayUs);
 }
+
 void drawClock(int hours, int minutes, int seconds)
 {
-    //todo, use draw text
+    char text[9];
+
+    hours %= 24;
+    minutes %= 60;
+    seconds %= 60;
+
+    if (hours < 0) hours += 24;
+    if (minutes < 0) minutes += 60;
+    if (seconds < 0) seconds += 60;
+
+    snprintf(
+        text, sizeof(text),
+        "%02d:%02d:%02d",
+        hours, minutes, seconds
+    );
+
+    drawText(text, -180, -25, 6, 0);
 }
 void drawAnalogClock(int hours, int minutes, int seconds, int delayUs)
 {
-    constexpr int cx = 0, cy = 0;
+    constexpr int cx = -20, cy = -20;
     float pi = 3.141592;
     const float angles[] = {
         2 *pi * ((hours % 12 + minutes / 60.0f) / 12.0f) - pi / 2,
@@ -112,7 +140,7 @@ void drawAnalogClock(int hours, int minutes, int seconds, int delayUs)
         2 * pi * (seconds / 60.0f) - pi / 2
     };
 
-    const int lengths[] = {200, 250, 400};
+    const int lengths[] = {100, 150, 200};
 
     for (int i = 0; i < 3; ++i)
     {
@@ -124,9 +152,27 @@ void drawAnalogClock(int hours, int minutes, int seconds, int delayUs)
     }
 }
 
+
 void drawChess(int cells)
 {
-    //TODO: fill unpackedFrame frame with chess pattern and run video
+    cells = max(cells, 1);
+
+    for (int y = 0; y < VIDEO_HEIGHT; ++y)
+    {
+        for (int x = 0; x < VIDEO_WIDTH; ++x)
+        {
+            const int cellX = x * cells / VIDEO_WIDTH;
+            const int cellY = y * cells / VIDEO_HEIGHT;
+
+            const bool light = ((cellX + cellY) & 1) == 0;
+
+            // Full black / full brightness.
+            unpackedFrame[y * VIDEO_WIDTH + x] =
+                light ? 255 : 0;
+        }
+    }
+
+    videoSetRasterMode();
 }
 
 void drawText(const char* text, int x, int y, int pixelSize, int delayUs)
