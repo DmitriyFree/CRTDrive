@@ -93,9 +93,6 @@ void SerialProtocol::update()
             }
             else
             {
-                // Keep the existing raster modes unchanged.
-                // If you currently use modes 0 or 1, add their
-                // correct payload-length checks here as needed.
                 state = RXState::WAIT_HEADER1;
                 break;
             }

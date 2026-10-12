@@ -63,7 +63,7 @@ void setup()
     );
 
     // CRT scanning → core 0
-    videoStart();
+    //videoStart();
 
     // Serial reception → core 1
     xTaskCreatePinnedToCore(
@@ -78,4 +78,9 @@ void setup()
 }
 
 void loop(){
+    //drawChess(20);
+    //drawAnalogClock(22,15,40,5);
+    drawText("11:25:36",-400,-50,15,100);
+    //drawRotatingCube(-20,0,700,10);
+    //drawScrollingText(" Subscribe! June is awesome", -400, -100, 30);
 }

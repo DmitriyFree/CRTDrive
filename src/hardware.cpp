@@ -141,17 +141,6 @@ void setPoint(int x, int y)
 
 
 // ============================================================
-// Stop
-// ============================================================
-
-void stopDeflection()
-{
-    ledcWrite(X_PWM_PIN, 0);
-    ledcWrite(Y_PWM_PIN, 0);
-}
-
-
-// ============================================================
 // Beam
 // ============================================================
 
@@ -201,7 +190,7 @@ void hardwareInit()
         PWM_RESOLUTION_Y
     );
 
-    stopDeflection();
+    setPoint(0,0);
 
     // Wake drivers.
     digitalWrite(DRIVER_SLEEP_PIN, HIGH);
