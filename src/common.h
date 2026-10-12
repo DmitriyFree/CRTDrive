@@ -26,6 +26,7 @@ constexpr float Y_GAIN = 0.38f;
 constexpr int PWM_FREQUENCY_X = 19531;
 constexpr int PWM_FREQUENCY_Y = 39062;
 
+static constexpr int DELAY_US = 15;
 static constexpr int SETTLE_US = 40;
 static constexpr int DWELL_STEP_nS = 500;
 static constexpr int QUADRANTS = 32;

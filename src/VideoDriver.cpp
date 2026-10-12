@@ -25,6 +25,7 @@ static VectorSegment vectorSegments[MAX_VECTOR_SEGMENTS];
 static VectorSegment scanSegments[MAX_VECTOR_SEGMENTS];
 static uint16_t vectorSegmentCount = 0;
 static volatile uint8_t displayMode = 2;
+static volatile bool outputEnabled = false;
 
 constexpr float VECTOR_CENTER_X = 127.5f;
 constexpr float VECTOR_CENTER_Y = 127.5f;
@@ -136,6 +137,11 @@ static void videoScanTask(void*)
 {
     while (true)
     {
+        if (!outputEnabled)
+        {
+            vTaskDelay(100);
+            continue;
+        }
         if (displayMode == 2)
         {
             scanFrame(unpackedFrame);
@@ -214,9 +220,20 @@ void videoSetVectorFrame(const uint8_t* data, uint16_t len)
 
     vectorSegmentCount = count;
     displayMode = 3;
+    videoEnable();
 }
 
 void videoSetRasterMode()
 {
     displayMode = 2;
+}
+
+void videoEnable()
+{
+    outputEnabled = true;
+}
+
+void videoDisable()
+{
+    outputEnabled = false;
 }
