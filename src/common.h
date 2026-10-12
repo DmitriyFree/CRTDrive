@@ -31,3 +31,4 @@ static constexpr int DWELL_STEP_nS = 500;
 static constexpr int QUADRANTS = 32;
 
 static constexpr int VECTOR_SETTLE_US = 3;
+constexpr uint16_t MAX_VECTOR_SEGMENTS = 600;
