@@ -1,3 +1,4 @@
+
 #include "hardware.h"
 
 #include <Arduino.h>
@@ -6,61 +7,163 @@
 #include "soc/ledc_reg.h"
 #include "soc/ledc_struct.h"
 
-// ============================================================
-// Fast GPIO
-// ============================================================
-
-inline void fastWrite(int pin, bool level)
+namespace
 {
-    if (level)
-        GPIO.out_w1ts = (1UL << pin);
-    else
-        GPIO.out_w1tc = (1UL << pin);
+    struct PwmConfig
+    {
+        uint32_t frequencyX;
+        uint32_t frequencyY;
+        uint8_t resolutionX;
+        uint8_t resolutionY;
+        float scaleX;
+        float scaleY;
+    };
+
+    constexpr PwmConfig RASTER_CONFIG {
+        19531, 39062,  // X / Y frequencies
+        12, 11,        // X / Y resolutions
+        RASTER_SCALE_X,
+        RASTER_SCALE_Y
+    };
+
+    constexpr PwmConfig VECTOR_CONFIG {
+        150000, 150000,
+        8, 8,
+        VECTOR_SCALE_X,
+        VECTOR_SCALE_Y
+    };
+
+    PwmConfig activeConfig = VECTOR_CONFIG;
+    DisplayProfile activeProfile = DisplayProfile::Vector;
+    bool profileInitialized = false;
+
+    int currentXDirection = 1;
+    int currentYDirection = 1;
+
+    inline void fastWrite(int pin, bool level)
+    {
+        if (level)
+            GPIO.out_w1ts = (1UL << pin);
+        else
+            GPIO.out_w1tc = (1UL << pin);
+    }
+
+    inline void fastPwmX(int duty)
+    {
+        const int maxDuty = (1 << activeConfig.resolutionX) - 1;
+
+        duty = static_cast<int>(lroundf(duty * activeConfig.scaleX));
+        duty = constrain(duty, 0, maxDuty);
+
+        LEDC.channel_group[0].channel[0].duty.duty =
+            (static_cast<uint32_t>(duty) << 4);
+
+        LEDC.channel_group[0].channel[0].conf1.duty_start = 1;
+    }
+
+    inline void fastPwmY(int duty)
+    {
+        const int maxDuty = (1 << activeConfig.resolutionY) - 1;
+
+        duty = static_cast<int>(lroundf(duty * activeConfig.scaleY));
+        duty = constrain(duty, 0, maxDuty);
+
+        LEDC.channel_group[0].channel[1].duty.duty =
+            (static_cast<uint32_t>(duty) << 4);
+
+        LEDC.channel_group[0].channel[1].conf1.duty_start = 1;
+    }
+
+    const PwmConfig& configFor(DisplayProfile profile)
+    {
+        switch (profile)
+        {
+            case DisplayProfile::Raster:  return RASTER_CONFIG;
+            case DisplayProfile::Vector:  return VECTOR_CONFIG;
+        }
+
+        return VECTOR_CONFIG;
+    }
 }
 
-
-// ============================================================
-// Fast LEDC
-// ============================================================
-
-inline void fastPwmX(int duty)
+int pwmMaxDutyX()
 {
-    constexpr int MAX_DUTY = (1 << PWM_RESOLUTION_X) - 1;
-
-    if (duty < 0) duty = 0;
-    if (duty > MAX_DUTY) duty = MAX_DUTY;
-
-    LEDC.channel_group[0].channel[0].duty.duty =
-        ((uint32_t)duty << 4);
-
-    LEDC.channel_group[0].channel[0].conf1.duty_start = 1;
+    return (1 << activeConfig.resolutionX) - 1;
 }
 
-inline void fastPwmY(int duty)
+int pwmMaxDutyY()
 {
-    constexpr int MAX_DUTY = (1 << PWM_RESOLUTION_Y) - 1;
-
-    if (duty < 0) duty = 0;
-    if (duty > MAX_DUTY) duty = MAX_DUTY;
-
-    LEDC.channel_group[0].channel[1].duty.duty =
-        ((uint32_t)duty << 4);
-
-    LEDC.channel_group[0].channel[1].conf1.duty_start = 1;
+    return (1 << activeConfig.resolutionY) - 1;
 }
 
+float pwmScaleX()
+{
+    return activeConfig.scaleX;
+}
 
-// ============================================================
-// Direction state
-// ============================================================
+float pwmScaleY()
+{
+    return activeConfig.scaleY;
+}
 
-int currentXDirection = 1;
-int currentYDirection = 1;
+DisplayProfile getDisplayProfile()
+{
+    return activeProfile;
+}
 
+bool setDisplayProfile(DisplayProfile profile)
+{
+    if (profileInitialized && profile == activeProfile)
+        return true;
 
-// ============================================================
-// X axis
-// ============================================================
+    const PwmConfig next = configFor(profile);
+
+    // Do not call this while another task is actively drawing.
+    beamOff();
+    digitalWrite(DRIVER_SLEEP_PIN, LOW);
+
+    ledcDetach(X_PWM_PIN);
+    ledcDetach(Y_PWM_PIN);
+
+    const bool xOk = ledcAttachChannel(
+        X_PWM_PIN,
+        next.frequencyX,
+        next.resolutionX,
+        0
+    );
+
+    const bool yOk = ledcAttachChannel(
+        Y_PWM_PIN,
+        next.frequencyY,
+        next.resolutionY,
+        1
+    );
+
+    if (!xOk || !yOk)
+    {
+        profileInitialized = false;
+        return false;
+    }
+
+    activeConfig = next;
+    activeProfile = profile;
+    profileInitialized = true;
+
+    // Restore a known position and direction after reconfiguration.
+    currentXDirection = 1;
+    currentYDirection = 1;
+
+    fastWrite(X_DIR_PIN, LOW);
+    fastWrite(Y_DIR_PIN, LOW);
+
+    fastPwmX(0);
+    fastPwmY(0);
+
+    digitalWrite(DRIVER_SLEEP_PIN, HIGH);
+    beamOn();
+
+    return true;
+}
 
 void setX(int x)
 {
@@ -86,15 +189,9 @@ void setX(int x)
     }
     else
     {
-        // Keep a tiny current through zero.
         fastPwmX(0);
     }
 }
-
-
-// ============================================================
-// Y axis
-// ============================================================
 
 void setY(int y)
 {
@@ -123,15 +220,9 @@ void setY(int y)
     }
     else
     {
-        // Keep a tiny current through zero.
         fastPwmY(0);
     }
 }
-
-
-// ============================================================
-// 2D position
-// ============================================================
 
 void setPoint(int x, int y)
 {
@@ -139,59 +230,35 @@ void setPoint(int x, int y)
     setY(y);
 }
 
-
-// ============================================================
-// Beam
-// ============================================================
-
 void beamOn()
 {
-    GPIO.out_w1ts = (1UL << BEAM_ALPHA_A_PIN); // 15 = HIGH
+    fastWrite(BEAM_ALPHA_A_PIN, HIGH);
 }
 
 void beamOff()
 {
-    GPIO.out_w1tc = (1UL << BEAM_ALPHA_A_PIN); // 15 = LOW
+    fastWrite(BEAM_ALPHA_A_PIN, LOW);
 }
-
-
-// ============================================================
-// Initialization
-// ============================================================
 
 void hardwareInit()
 {
     pinMode(X_PWM_PIN, OUTPUT);
     pinMode(X_DIR_PIN, OUTPUT);
-
-    pinMode(2, OUTPUT);//led
-
     pinMode(Y_PWM_PIN, OUTPUT);
     pinMode(Y_DIR_PIN, OUTPUT);
-
     pinMode(DRIVER_SLEEP_PIN, OUTPUT);
     pinMode(BEAM_ALPHA_A_PIN, OUTPUT);
+    pinMode(2, OUTPUT);
 
-    // Keep drivers asleep during configuration.
     digitalWrite(DRIVER_SLEEP_PIN, LOW);
+    beamOff();
 
-    // Beam enabled
-    beamOn();
+    profileInitialized = false;
 
-    ledcAttach(
-        X_PWM_PIN,
-        PWM_FREQUENCY_X,
-        PWM_RESOLUTION_X
-    );
-
-    ledcAttach(
-        Y_PWM_PIN,
-        PWM_FREQUENCY_Y,
-        PWM_RESOLUTION_Y
-    );
-
-    setPoint(0,0);
-
-    // Wake drivers.
-    digitalWrite(DRIVER_SLEEP_PIN, HIGH);
+    // Set up the initial drawing profile.
+    if (setDisplayProfile(DisplayProfile::Vector))
+    {
+        setPoint(0, 0);
+        beamOn();
+    }
 }

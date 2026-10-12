@@ -29,8 +29,6 @@ static volatile bool outputEnabled = false;
 
 constexpr float VECTOR_CENTER_X = 127.5f;
 constexpr float VECTOR_CENTER_Y = 127.5f;
-constexpr float VECTOR_SCALE_X = 700.0f / 255.0f;
-constexpr float VECTOR_SCALE_Y = 700.0f / 255.0f;
 
 static inline void delayNanoseconds(uint32_t ns)
 {
@@ -43,21 +41,19 @@ static inline void delayNanoseconds(uint32_t ns)
     }
 }
 
-static void buildTables()
+static void buildTables(float x_gain,float y_gain)
 {
-    constexpr int X_MAX_DUTY = (1 << PWM_RESOLUTION_X) - 1;
-    constexpr int Y_MAX_DUTY = (1 << PWM_RESOLUTION_Y) - 1;
-
-    const float xScale = X_MAX_DUTY * X_GAIN / 50.0f;
-    const float yScale = Y_MAX_DUTY * Y_GAIN / 50.0f;
+    const float xStep = pwmMaxDutyX() * x_gain / 50.0f;
+    const float yStep = pwmMaxDutyY() * y_gain / 50.0f;
 
     for (int col = 0; col < VIDEO_WIDTH; ++col)
-        xPosition[col] = static_cast<int>((col - 50) * xScale);
+        xPosition[col] = static_cast<int>((col - 50) * xStep);
 
     for (int row = 0; row < VIDEO_HEIGHT; ++row)
     {
-        yPosition[row] = static_cast<int>((row - 50) * yScale);
-        sourceRowOffset[row] = (VIDEO_HEIGHT - 1 - row) * VIDEO_WIDTH;
+        yPosition[row] = static_cast<int>((row - 50) * yStep);
+        sourceRowOffset[row] =
+            (VIDEO_HEIGHT - 1 - row) * VIDEO_WIDTH;
     }
 }
 
@@ -135,13 +131,34 @@ static void scanFrame(const uint8_t* frame)
 
 static void videoScanTask(void*)
 {
+    DisplayProfile lastProfile = getDisplayProfile();
+
     while (true)
     {
         if (!outputEnabled)
         {
-            vTaskDelay(100);
+            vTaskDelay(1);
             continue;
         }
+
+        const DisplayProfile wanted =
+            displayMode == 2
+                ? DisplayProfile::Raster
+                : DisplayProfile::Vector;
+
+        if (wanted != lastProfile)
+        {
+            if (!setDisplayProfile(wanted))
+            {
+                vTaskDelay(10);
+                continue;
+            }
+
+            if(wanted == DisplayProfile::Raster)buildTables(RASTER_SCALE_X,RASTER_SCALE_Y);
+            if(wanted == DisplayProfile::Vector)buildTables(VECTOR_SCALE_X,VECTOR_SCALE_Y);
+            lastProfile = wanted;
+        }
+
         if (displayMode == 2)
         {
             scanFrame(unpackedFrame);
@@ -163,10 +180,13 @@ static void videoScanTask(void*)
         {
             const VectorSegment& line = scanSegments[i];
 
-            const int x1 = lroundf((line.x1 - VECTOR_CENTER_X) * VECTOR_SCALE_X);
-            const int y1 = lroundf((line.y1 - VECTOR_CENTER_Y) * VECTOR_SCALE_Y);
-            const int x2 = lroundf((line.x2 - VECTOR_CENTER_X) * VECTOR_SCALE_X);
-            const int y2 = lroundf((line.y2 - VECTOR_CENTER_Y) * VECTOR_SCALE_Y);
+            const float vectorScaleX = (2.0f * pwmMaxDutyX()) / 255.0f;
+            const float vectorScaleY = (2.0f * pwmMaxDutyY()) / 255.0f;
+
+            const int x1 = lroundf((line.x1 - VECTOR_CENTER_X) * vectorScaleX);
+            const int y1 = lroundf((line.y1 - VECTOR_CENTER_Y) * vectorScaleY);
+            const int x2 = lroundf((line.x2 - VECTOR_CENTER_X) * vectorScaleX);
+            const int y2 = lroundf((line.y2 - VECTOR_CENTER_Y) * vectorScaleY);
 
             beamOn();
             drawLine(x1, -y1, x2, -y2, VECTOR_SETTLE_US);
@@ -180,7 +200,13 @@ static void videoScanTask(void*)
 void videoInit()
 {
     memset(unpackedFrame, 255, sizeof(unpackedFrame));
-    buildTables();
+    const DisplayProfile wanted =
+            displayMode == 2
+                ? DisplayProfile::Raster
+                : DisplayProfile::Vector;
+
+    if(wanted == DisplayProfile::Raster)buildTables(RASTER_SCALE_X,RASTER_SCALE_Y);
+    if(wanted == DisplayProfile::Vector)buildTables(VECTOR_SCALE_X,VECTOR_SCALE_Y);
 }
 
 void videoStart()

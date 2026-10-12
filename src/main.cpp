@@ -13,8 +13,13 @@ SerialProtocol SerialProto;
 // Demo configuration
 // -----------------------------------------------------------------------------
 
-constexpr uint32_t VIDEO_TIMEOUT_MS = 1000;
-constexpr uint32_t PATTERN_DURATION_MS = 3000;
+constexpr uint32_t VIDEO_TIMEOUT_MS = 5000;
+constexpr uint32_t PATTERN_DURATION_MS = 2000;
+//clocks
+static unsigned long startTime = millis();
+int hours;
+int minutes;
+int seconds;
 
 enum class DemoMode : uint8_t
 {
@@ -24,20 +29,20 @@ enum class DemoMode : uint8_t
 
 enum class Pattern : uint8_t
 {
-    Square,
-    Circle,
-    Triangle,
-    Cross,
-    Diamond,
-    Text,
-    Chessboard,
+    //Square,
+    //Circle,
+    //Triangle,
+    //Cross,
+    AnalogClock,
+    //Text,
+    //Chessboard,
     Count
 };
 
 static volatile DemoMode demoMode = DemoMode::Idle;
 static volatile uint32_t lastFrameMillis = 0;
 
-static Pattern currentPattern = Pattern::Square;
+static Pattern currentPattern = Pattern::AnalogClock;
 static uint32_t patternStartMillis = 0;
 static bool patternInitialized = false;
 
@@ -136,12 +141,12 @@ static void beginPattern(Pattern pattern)
     // Direct-drawn patterns must not compete with the raster scanner.
     videoDisable();
 
-    if (currentPattern == Pattern::Chessboard)
+    /*if (currentPattern == Pattern::Chessboard)
     {
         fillChessboard(5);
         videoSetRasterMode();
         patternInitialized = true;
-    }
+    }*/
 }
 
 static void advancePattern()
@@ -163,7 +168,7 @@ static void renderIdlePattern()
     beamOn();
     switch (currentPattern)
     {
-        case Pattern::Square:
+        /*case Pattern::Square:
             drawSquare(250, DELAY_US);
             break;
 
@@ -179,25 +184,20 @@ static void renderIdlePattern()
             drawCross(250, DELAY_US);
             break;
 
-        case Pattern::Diamond:
-            drawDiamond(250, DELAY_US);
-            break;
-
         case Pattern::Text:
-            drawText("CRT DEMO", -250, -100, 12, DELAY_US);
+            drawText("CRT", -250, -100, 30, 50*DELAY_US);
+            break;*/
+
+        case Pattern::AnalogClock:
+            drawAnalogClock(hours, minutes, seconds, DELAY_US);
             break;
 
-        case Pattern::Chessboard:
+        /*case Pattern::Chessboard:
             // Raster video task renders the framebuffer.
             videoSetRasterMode();
             videoEnable();
             vTaskDelay(1);
-            break;
-
-        case Pattern::Count:
-           
-            beginPattern(Pattern::Square);
-            break;
+            break;*/
     }
 }
 
@@ -213,8 +213,12 @@ void setup()
     Serial.begin(3000000);
 
     hardwareInit();
+    setDisplayProfile(DisplayProfile::Raster);
+
     videoInit();
     videoStart();
+    videoEnable();
+
     beamOn();
 
     SerialProto.begin(Serial, onFrameReceived);
@@ -228,8 +232,6 @@ void setup()
         nullptr,
         1
     );
-
-    beginPattern(Pattern::Square);
 }
 
 // -----------------------------------------------------------------------------
@@ -238,14 +240,18 @@ void setup()
 
 void loop()
 {
-    const uint32_t now = millis();
+    /*const uint32_t now = millis();
+    const unsigned long elapsed = (millis() - startTime) / 100;//intentional fast demo
+    hours   = (elapsed / 3600) % 24;
+    minutes = (elapsed / 60) % 60;
+    seconds = elapsed % 60;
 
     if (demoMode == DemoMode::Video)
     {
         if (now - lastFrameMillis >= VIDEO_TIMEOUT_MS)
         {
             demoMode = DemoMode::Idle;
-            beginPattern(Pattern::Square);
+            beginPattern(Pattern::AnalogClock);
         }
         else
         {
@@ -254,5 +260,10 @@ void loop()
         }
     }
 
-    renderIdlePattern();
+    renderIdlePattern();*/
+
+    //setPoint(70,70);
+    //drawSquare(150, DELAY_US);
+    //drawText("CRT", -150, -50, 20, 1000*DELAY_US);
+    //delay(500);
 }
