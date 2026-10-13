@@ -12,12 +12,11 @@ void drawDiagonalCross(int size, int delayUs);
 void drawDiamond(int size, int delayUs);
 void drawConcentricCircles(int delayUs);
 
-void drawClock(int hours, int minutes, int seconds);
+void drawClock(int hours, int minutes, int seconds, int delayUs);
 void drawAnalogClock(int hours, int minutes, int seconds, int delayUs);
 
 void drawChess(int cells);
 
-void drawText(const char* text, int x, int y,
-              int pixelSize, int delayUs);
+void drawText(const char* text, int x, int y, int pixelSizeX, int pixelSizeY, int delayUs);
 void drawScrollingText(const char* text, int x, int y, int pixelSize);
 void drawRotatingCube(int cx, int cy, int size, int delayUs);

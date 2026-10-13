@@ -27,10 +27,16 @@ namespace
     };
 
     constexpr PwmConfig VECTOR_CONFIG {
-        150000, 150000,
-        8, 8,
+        78125, 78125,
+        10, 10,
         VECTOR_SCALE_X,
         VECTOR_SCALE_Y
+    };
+    constexpr PwmConfig TEXT_CONFIG {
+        312500, 312500,
+        8, 8,
+        TEXT_SCALE_X,
+        TEXT_SCALE_Y
     };
 
     PwmConfig activeConfig = VECTOR_CONFIG;

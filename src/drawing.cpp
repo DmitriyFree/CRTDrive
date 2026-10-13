@@ -110,7 +110,7 @@ void drawConcentricCircles(int delayUs)
     drawCircle(75, delayUs);
 }
 
-void drawClock(int hours, int minutes, int seconds)
+void drawClock(int hours, int minutes, int seconds, int delayUs)
 {
     char text[9];
 
@@ -128,11 +128,11 @@ void drawClock(int hours, int minutes, int seconds)
         hours, minutes, seconds
     );
 
-    drawText(text, -180, -25, 6, 0);
+    drawText(text, -240, -20, 10, 20, 5*delayUs);
 }
 void drawAnalogClock(int hours, int minutes, int seconds, int delayUs)
 {
-    constexpr int cx = -20, cy = -20;
+    constexpr int cx = 0, cy = 0;
     float pi = 3.141592;
     const float angles[] = {
         2 *pi * ((hours % 12 + minutes / 60.0f) / 12.0f) - pi / 2,
@@ -174,10 +174,14 @@ void drawChess(int cells)
 
     videoSetRasterMode();
 }
-
-void drawText(const char* text, int x, int y, int pixelSize, int delayUs)
+void drawText(const char* text, int x, int y,
+              int pixelSizeX, int pixelSizeY, int delayUs)
 {
-    const int charWidth = 6 * pixelSize;
+    // Dead-zone half-widths, in drawing coordinates.
+    constexpr int TEXT_DEAD_ZONE_X = 26;
+    constexpr int TEXT_DEAD_ZONE_Y = 10; // Set > 0 to enable Y-axis clipping.
+
+    const int charWidth = 6 * pixelSizeX;
 
     while (*text)
     {
@@ -189,18 +193,40 @@ void drawText(const char* text, int x, int y, int pixelSize, int delayUs)
             {
                 for (int col = 0; col < 5; ++col)
                 {
-                    if (glyph->rows[row] & (1 << (4 - col)))
-                    {
-                        const int px = x + col * pixelSize;
-                        const int py = y + row * pixelSize;
+                    if (!(glyph->rows[row] & (1 << (4 - col))))
+                        continue;
 
-                        drawLine(
-                            px, py,
-                            px + pixelSize - 1, py
-                        );
-                        
+                    const int px = x + col * pixelSizeX;
+                    const int py = y + row * pixelSizeY;
+
+                    // Clip horizontal strokes against the X-axis dead zone.
+                    if (TEXT_DEAD_ZONE_Y > 0 &&
+                        py >= -TEXT_DEAD_ZONE_Y &&
+                        py <= TEXT_DEAD_ZONE_Y)
+                    {
+                        continue;
                     }
-                    delayMicroseconds(delayUs);
+
+                    const int lineStart = px<0?px - TEXT_DEAD_ZONE_X:px + TEXT_DEAD_ZONE_X;
+                    const int lineEnd = (px + pixelSizeX - 1)<0?px + pixelSizeX - 1 - TEXT_DEAD_ZONE_X:px + pixelSizeX - 1 + TEXT_DEAD_ZONE_X;
+
+                    // Split the stroke into portions outside the X dead zone.
+                    const int leftEnd = min(lineEnd, -TEXT_DEAD_ZONE_X - 1);
+                    const int rightStart = max(lineStart, TEXT_DEAD_ZONE_X + 1);
+
+                    if (lineStart <= leftEnd)
+                    {
+                        beamOn();
+                        drawLine(lineStart, py, leftEnd, py, delayUs);
+                        beamOff();
+                    }
+
+                    if (lineEnd >= rightStart)
+                    {
+                        beamOn();
+                        drawLine(rightStart, py, lineEnd, py, delayUs);
+                        beamOff();
+                    }
                 }
             }
         }

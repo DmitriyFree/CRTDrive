@@ -6,6 +6,7 @@ enum class DisplayProfile : uint8_t
 {
     Raster,
     Vector,
+    Text
 };
 
 void hardwareInit();

@@ -78,12 +78,12 @@ static void testDigitalClock()
     clockMinutes = (elapsed / 60) % 60;
     clockSeconds = elapsed % 60;
 
-    drawClock(clockHours, clockMinutes, clockSeconds);
+    drawClock(clockHours, clockMinutes, clockSeconds, 10);
 }
 
 static void testText()
 {
-    drawText("CRT", -100, -40, 20, DELAY_US);
+    drawText("CRT", -100, -40, 20, 20, DELAY_US);
 }
 
 static void testRotatingCube()
@@ -111,17 +111,17 @@ struct DemoTest
 static const DemoTest tests[] = {
     // Uncomment or comment entries to choose the test sequence.
 
-     {"Square",        testSquare,        DisplayProfile::Vector, false},
+     /*{"Square",        testSquare,        DisplayProfile::Vector, false},
      {"Circle",        testCircle,        DisplayProfile::Vector, false},
      {"Triangle",      testTriangle,      DisplayProfile::Vector, false},
      {"Cross",         testCross,         DisplayProfile::Vector, false},
      {"Filled square", testFilledSquare,  DisplayProfile::Vector, false},
      {"Diamond",       testDiamond,       DisplayProfile::Vector, false},
-     {"Analog clock",  testAnalogClock,   DisplayProfile::Vector, false},
-     {"Digital clock", testDigitalClock,  DisplayProfile::Vector, false},
-     {"Text",          testText,          DisplayProfile::Vector, false},
+     {"Analog clock",  testAnalogClock,   DisplayProfile::Vector, false},*/
+     {"Digital clock", testDigitalClock,  DisplayProfile::Text, false},
+     /*{"Text",          testText,          DisplayProfile::Vector, false},
      {"Rotating cube", testRotatingCube,  DisplayProfile::Vector, false},
-     {"Chessboard",    testChessboard,    DisplayProfile::Raster,  true},
+     {"Chessboard",    testChessboard,    DisplayProfile::Raster,  true},*/
 };
 
 constexpr uint16_t TEST_COUNT = sizeof(tests) / sizeof(tests[0]);
