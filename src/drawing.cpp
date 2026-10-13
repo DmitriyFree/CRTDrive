@@ -177,9 +177,8 @@ void drawChess(int cells)
 void drawText(const char* text, int x, int y,
               int pixelSizeX, int pixelSizeY, int delayUs)
 {
-    // Dead-zone half-widths, in drawing coordinates.
     constexpr int TEXT_DEAD_ZONE_X = 26;
-    constexpr int TEXT_DEAD_ZONE_Y = 10; // Set > 0 to enable Y-axis clipping.
+    constexpr int TEXT_DEAD_ZONE_Y = 20;
 
     const int charWidth = 6 * pixelSizeX;
 
@@ -199,32 +198,36 @@ void drawText(const char* text, int x, int y,
                     const int px = x + col * pixelSizeX;
                     const int py = y + row * pixelSizeY;
 
-                    // Clip horizontal strokes against the X-axis dead zone.
-                    if (TEXT_DEAD_ZONE_Y > 0 &&
-                        py >= -TEXT_DEAD_ZONE_Y &&
-                        py <= TEXT_DEAD_ZONE_Y)
-                    {
-                        continue;
-                    }
+                    // Push the whole stroke away from Y = 0.
+                    const int adjustedY =
+                        py < 0 ? py - TEXT_DEAD_ZONE_Y
+                               : py > 0 ? py + TEXT_DEAD_ZONE_Y
+                                        : 0;
 
-                    const int lineStart = px<0?px - TEXT_DEAD_ZONE_X:px + TEXT_DEAD_ZONE_X;
-                    const int lineEnd = (px + pixelSizeX - 1)<0?px + pixelSizeX - 1 - TEXT_DEAD_ZONE_X:px + pixelSizeX - 1 + TEXT_DEAD_ZONE_X;
+                    // Push the whole stroke away from X = 0.
+                    const int rawEnd = px + pixelSizeX - 1;
+                    const int lineStart =
+                        px < 0 ? px - TEXT_DEAD_ZONE_X
+                               : px + TEXT_DEAD_ZONE_X;
+                    const int lineEnd =
+                        rawEnd < 0 ? rawEnd - TEXT_DEAD_ZONE_X
+                                   : rawEnd + TEXT_DEAD_ZONE_X;
 
-                    // Split the stroke into portions outside the X dead zone.
+                    // Clip against the X-axis dead zone.
                     const int leftEnd = min(lineEnd, -TEXT_DEAD_ZONE_X - 1);
                     const int rightStart = max(lineStart, TEXT_DEAD_ZONE_X + 1);
 
                     if (lineStart <= leftEnd)
                     {
                         beamOn();
-                        drawLine(lineStart, py, leftEnd, py, delayUs);
+                        drawLine(lineStart, adjustedY, leftEnd, adjustedY, delayUs);
                         beamOff();
                     }
 
                     if (lineEnd >= rightStart)
                     {
                         beamOn();
-                        drawLine(rightStart, py, lineEnd, py, delayUs);
+                        drawLine(rightStart, adjustedY, lineEnd, adjustedY, delayUs);
                         beamOff();
                     }
                 }

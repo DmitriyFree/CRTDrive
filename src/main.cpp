@@ -83,7 +83,7 @@ static void testDigitalClock()
 
 static void testText()
 {
-    drawText("CRT", -100, -40, 20, 20, DELAY_US);
+    drawText("CRT", -255, -40, 20, 20, 50);
 }
 
 static void testRotatingCube()
@@ -118,9 +118,9 @@ static const DemoTest tests[] = {
      {"Filled square", testFilledSquare,  DisplayProfile::Vector, false},
      {"Diamond",       testDiamond,       DisplayProfile::Vector, false},
      {"Analog clock",  testAnalogClock,   DisplayProfile::Vector, false},*/
-     {"Digital clock", testDigitalClock,  DisplayProfile::Text, false},
-     /*{"Text",          testText,          DisplayProfile::Vector, false},
-     {"Rotating cube", testRotatingCube,  DisplayProfile::Vector, false},
+     //{"Digital clock", testDigitalClock,  DisplayProfile::Text, false},
+     {"Text",          testText,          DisplayProfile::Text, false},
+     /*{"Rotating cube", testRotatingCube,  DisplayProfile::Vector, false},
      {"Chessboard",    testChessboard,    DisplayProfile::Raster,  true},*/
 };
 
