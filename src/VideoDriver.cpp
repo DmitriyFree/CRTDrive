@@ -155,7 +155,76 @@ static void scanFrame(const uint8_t* frame)
 
     vTaskDelay(1);
 }
+static void sortVectorSegments(uint16_t count)
+{
+    if (count < 2)
+        return;
 
+    // Start with the beam at the center of the source coordinate space.
+    float currentX = VECTOR_CENTER_X;
+    float currentY = VECTOR_CENTER_Y;
+
+    // These weights account for different X/Y display scales.
+    const float scaleX = pwmMaxDutyX() * TEXT_SCALE_X / 50.0f / 3.4f;
+    const float scaleY = pwmMaxDutyY() * TEXT_SCALE_Y / 50.0f / 3.4f;
+
+    for (uint16_t i = 0; i < count; ++i)
+    {
+        uint16_t bestIndex = i;
+        bool bestReverse = false;
+        float bestDistance = INFINITY;
+
+        for (uint16_t j = i; j < count; ++j)
+        {
+            const VectorSegment& s = scanSegments[j];
+
+            const float x1 = (s.x1 - currentX) * scaleX;
+            const float y1 = (s.y1 - currentY) * scaleY;
+            const float x2 = (s.x2 - currentX) * scaleX;
+            const float y2 = (s.y2 - currentY) * scaleY;
+
+            const float d1 = x1 * x1 + y1 * y1;
+            const float d2 = x2 * x2 + y2 * y2;
+
+            if (d1 < bestDistance)
+            {
+                bestDistance = d1;
+                bestIndex = j;
+                bestReverse = false;
+            }
+
+            if (d2 < bestDistance)
+            {
+                bestDistance = d2;
+                bestIndex = j;
+                bestReverse = true;
+            }
+        }
+
+        // Move the nearest segment into the current position.
+        if (bestIndex != i)
+        {
+            const VectorSegment temp = scanSegments[i];
+            scanSegments[i] = scanSegments[bestIndex];
+            scanSegments[bestIndex] = temp;
+        }
+
+        // Reverse the chosen segment if its second endpoint is nearer.
+        if (bestReverse)
+        {
+            const uint8_t temp = scanSegments[i].x1;
+            scanSegments[i].x1 = scanSegments[i].x2;
+            scanSegments[i].x2 = temp;
+
+            const uint8_t tempY = scanSegments[i].y1;
+            scanSegments[i].y1 = scanSegments[i].y2;
+            scanSegments[i].y2 = tempY;
+        }
+
+        currentX = scanSegments[i].x2;
+        currentY = scanSegments[i].y2;
+    }
+}
 static void videoScanTask(void*)
 {
     DisplayProfile lastProfile = getDisplayProfile();
@@ -196,6 +265,8 @@ static void videoScanTask(void*)
 
         for (uint16_t i = 0; i < count; ++i)
             scanSegments[i] = vectorSegments[i];
+
+        sortVectorSegments(count);
 
         if (count == 0)
         {
