@@ -22,12 +22,12 @@ namespace
     };
 
     constexpr PwmConfig RASTER_CONFIG {
-        78125, 19531,  // X / Y frequencies
-        10, 12,        // X / Y resolutions
+        19531, 39062,  // X / Y frequencies
+        12, 10,        // X / Y resolutions
         RASTER_SCALE_X,
         RASTER_SCALE_Y,
-        0,
-        0
+        30,
+        30
     };
     constexpr PwmConfig TEXT_CONFIG {
         156250, 156250,

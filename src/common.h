@@ -23,8 +23,8 @@ constexpr int PWM_RESOLUTION_X = 9;  // Initial hardware setup only
 constexpr int PWM_RESOLUTION_Y = 9;
 
 // Per-profile output compensation.
-constexpr float RASTER_SCALE_X = 1.2f;
-constexpr float RASTER_SCALE_Y = 0.5f;
+constexpr float RASTER_SCALE_X = 0.25f;
+constexpr float RASTER_SCALE_Y = 0.55f;
 constexpr float VECTOR_SCALE_X = 1.6f;
 constexpr float VECTOR_SCALE_Y = 1.6f;
 constexpr float TEXT_SCALE_X = 0.6f;
