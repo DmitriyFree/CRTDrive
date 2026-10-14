@@ -122,7 +122,7 @@ struct DemoTest
 static const DemoTest tests[] = {
     // Uncomment or comment entries to choose the test sequence.
     ///{"Text",            testText,          DisplayProfile::Text, false},
-    //{"Square",        testSquare,        DisplayProfile::Text, false},
+    {"Square",        testSquare,        DisplayProfile::Text, false},
     //{"Circle",        testCircle,        DisplayProfile::Text, false},
     //{"Cross",         testCross,         DisplayProfile::Text, false},
     //{"Rotating cube", testRotatingCube,  DisplayProfile::Text, false},

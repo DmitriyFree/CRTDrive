@@ -35,7 +35,7 @@ namespace
         TEXT_SCALE_X,
         TEXT_SCALE_Y,
         72,
-        72
+        60
     };
 
     PwmConfig activeConfig = TEXT_CONFIG;

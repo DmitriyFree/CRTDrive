@@ -207,8 +207,12 @@ static void videoScanTask(void*)
         {
             const VectorSegment& line = scanSegments[i];
 
-            const float vectorScaleX = (2.0f * pwmMaxDutyX()) / 255.0f;
-            const float vectorScaleY = (2.0f * pwmMaxDutyY()) / 255.0f;
+            // Use the same scale convention as the drawing methods.
+            const float vectorScaleX =
+                pwmMaxDutyX() * TEXT_SCALE_X / 50.0f / 3.4;
+
+            const float vectorScaleY =
+                pwmMaxDutyY() * TEXT_SCALE_Y / 50.0f / 3.4;
 
             const int x1 = lroundf((line.x1 - VECTOR_CENTER_X) * vectorScaleX);
             const int y1 = lroundf((line.y1 - VECTOR_CENTER_Y) * vectorScaleY);
