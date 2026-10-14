@@ -62,34 +62,45 @@ static void scanFrame(const uint8_t* frame)
     const int deadZoneY = getDisplayDeadZoneY();
 
     constexpr int X_SECTIONS = QUADRANTS / 2;
-    constexpr int SECTION_WIDTH = VIDEO_WIDTH / (X_SECTIONS > 1 ? X_SECTIONS : 1);
+    constexpr int SECTION_WIDTH =
+        VIDEO_WIDTH / (X_SECTIONS > 1 ? X_SECTIONS : 1);
+
     constexpr int HALF_HEIGHT = VIDEO_HEIGHT / 2;
 
     for (int section = 0; section < X_SECTIONS; ++section)
     {
         const int colStart = section * SECTION_WIDTH;
-        const int colEnd = section == X_SECTIONS - 1
-            ? VIDEO_WIDTH
-            : colStart + SECTION_WIDTH;
+
+        const int colEnd =
+            (section == X_SECTIONS - 1)
+                ? VIDEO_WIDTH
+                : colStart + SECTION_WIDTH;
 
         for (int half = 0; half < 2; ++half)
         {
-            const int rowStart = half == 0 ? 0 : HALF_HEIGHT;
-            const int rowEnd = half == 0 ? HALF_HEIGHT : VIDEO_HEIGHT;
+            const int rowStart =
+                half == 0 ? 0 : HALF_HEIGHT;
+
+            const int rowEnd =
+                half == 0 ? HALF_HEIGHT : VIDEO_HEIGHT;
 
             for (int row = rowStart; row < rowEnd; ++row)
             {
-                const uint8_t* src = frame + sourceRowOffset[row];
+                const uint8_t* src =
+                    frame + sourceRowOffset[row];
+
                 const bool reverse = row & 1;
+
                 int i = reverse ? colEnd - 1 : colStart;
 
                 while (reverse ? i >= colStart : i < colEnd)
                 {
                     int start = i;
 
+                    // Find first lit pixel.
                     while (reverse ? start >= colStart : start < colEnd)
                     {
-                        if (src[start] >> 6)
+                        if ((src[start] >> 6) != 0)
                             break;
 
                         start += reverse ? -1 : 1;
@@ -98,35 +109,47 @@ static void scanFrame(const uint8_t* frame)
                     if (reverse ? start < colStart : start >= colEnd)
                         break;
 
+                    // Find end of lit run.
                     int end = start + (reverse ? -1 : 1);
 
                     while (reverse ? end >= colStart : end < colEnd)
                     {
-                        if (!(src[end] >> 6))
+                        if ((src[end] >> 6) == 0)
                             break;
 
                         end += reverse ? -1 : 1;
                     }
 
-                    const int scanY = compensateDeadZone(yPosition[row], deadZoneY);
-
+                    // Compensate the starting position.
                     beamOff();
+
                     setPoint(
                         compensateDeadZone(xPosition[start], deadZoneX),
-                        scanY
+                        compensateDeadZone(yPosition[row], deadZoneY)
                     );
+
                     delayMicroseconds(SETTLE_US);
 
-                    for (int p = start; p != end; p += reverse ? -1 : 1)
+                    // Draw the run using the original pixel-by-pixel logic.
+                    int p = start;
+
+                    while (p != end)
                     {
-                        if (p != start)
+                        const uint8_t dwell = src[p] >> 6;
+
+                        setPoint(
+                            compensateDeadZone(xPosition[p], deadZoneX),
+                            compensateDeadZone(yPosition[row], deadZoneY)
+                        );
+
+                        if (dwell != 0)
                         {
-                            setX(compensateDeadZone(xPosition[p], deadZoneX));
+                            beamOn();
+                            delayNanoseconds(DWELL_STEP_nS * dwell);
+                            beamOff();
                         }
 
-                        beamOn();
-                        delayNanoseconds(DWELL_STEP_nS * (src[p] >> 6));
-                        beamOff();
+                        p += reverse ? -1 : 1;
                     }
 
                     i = end;

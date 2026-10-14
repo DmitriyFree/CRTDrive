@@ -239,7 +239,7 @@ void drawAnalogClock(
 
 void drawChess(int cells)
 {
-    /*cells = max(cells, 1);
+    cells = max(cells, 1);
 
     for (int y = 0; y < VIDEO_HEIGHT; ++y)
     {
@@ -254,7 +254,7 @@ void drawChess(int cells)
             unpackedFrame[y * VIDEO_WIDTH + x] =
                 light ? 255 : 0;
         }
-    }*/
+    }
 
     videoSetRasterMode();
 }
