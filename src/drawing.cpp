@@ -239,7 +239,7 @@ void drawAnalogClock(
 
 void drawChess(int cells)
 {
-    cells = max(cells, 1);
+    /*cells = max(cells, 1);
 
     for (int y = 0; y < VIDEO_HEIGHT; ++y)
     {
@@ -254,7 +254,7 @@ void drawChess(int cells)
             unpackedFrame[y * VIDEO_WIDTH + x] =
                 light ? 255 : 0;
         }
-    }
+    }*/
 
     videoSetRasterMode();
 }
@@ -317,7 +317,7 @@ void drawScrollingText(
         characters[textLength++] = decodeUTF8(ptr);
     }
 
-    const int totalColumns = textLength * charWidth;
+    int totalColumns = textLength * charWidth;
 
     if (totalColumns == 0)
         return;
@@ -405,6 +405,7 @@ void drawScrollingText(
         }
 
         offset = (offset + 1) % totalColumns;
+        if((--totalColumns)==0)break;
     }
 }
 void drawRotatingCube(int cx, int cy, int size, int delayUs)

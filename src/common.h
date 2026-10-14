@@ -19,12 +19,11 @@ constexpr int Y_DIR_PIN = 19;
 constexpr int DRIVER_SLEEP_PIN = 5;
 constexpr int BEAM_ALPHA_A_PIN = 15;
 
-
 constexpr int PWM_RESOLUTION_X = 9;  // Initial hardware setup only
 constexpr int PWM_RESOLUTION_Y = 9;
 
 // Per-profile output compensation.
-constexpr float RASTER_SCALE_X = 0.5f;
+constexpr float RASTER_SCALE_X = 1.2f;
 constexpr float RASTER_SCALE_Y = 0.5f;
 constexpr float VECTOR_SCALE_X = 1.6f;
 constexpr float VECTOR_SCALE_Y = 1.6f;
@@ -32,7 +31,7 @@ constexpr float TEXT_SCALE_X = 0.6f;
 constexpr float TEXT_SCALE_Y = 0.6f;
 
 static constexpr int DELAY_US = 30;
-static constexpr int SETTLE_US = 40;
+static constexpr int SETTLE_US = 25;
 static constexpr int DWELL_STEP_nS = 500;
 static constexpr int QUADRANTS = 32;
 

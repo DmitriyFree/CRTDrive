@@ -88,12 +88,13 @@ static void testDigitalClock()
 
 static void testText()
 {
-    drawText("CRT", -160, -70, 20, 20, 50);
+    drawText("June", -180, -90, 15, 15, 40);
+    drawText(" CRT", -180, 50, 15, 15, 40);
 }
 
 static void testScrollingText()
 {
-    drawScrollingText("Subscribe! ", -160, -70, 20, 20, 500);
+    drawScrollingText("Like! Subscribe! ", -160, -70, 20, 20, 500);
 }
 
 static void testRotatingCube()
@@ -120,22 +121,20 @@ struct DemoTest
 
 static const DemoTest tests[] = {
     // Uncomment or comment entries to choose the test sequence.
-
-     //{"Square",        testSquare,        DisplayProfile::Text, false},//passed
-     //{"Circle",        testCircle,        DisplayProfile::Text, false},//passed
-     //{"Triangle",      testTriangle,      DisplayProfile::Text, false},//passed
-     //{"Cross",         testCross,         DisplayProfile::Text, false},//passed
-     //{"DiagonalCross",         drawDiagonalCross,         DisplayProfile::Text, false},//passed
-     //{"Filled square", testFilledSquare,  DisplayProfile::Text, false},//passed(sus)
-     //{"Diamond",       testDiamond,       DisplayProfile::Text, false},//passed(sus)
-     {"Analog clock",  testAnalogClock,   DisplayProfile::Text, false},//fails at axis also works weird
-     //{"Digital clock", testDigitalClock,  DisplayProfile::Text, false},//passed
-     //{"Text",            testText,          DisplayProfile::Text, false},//passed
-     //{"ScrollingText",   testScrollingText,          DisplayProfile::Text, false},//passed
-     //{"Rotating cube", testRotatingCube,  DisplayProfile::Text, false},//passed
-     //{"Chessboard",    testChessboard,    DisplayProfile::Raster,  true},
-     //todo: dwin strings text
-     //
+    ///{"Text",            testText,          DisplayProfile::Text, false},
+    //{"Square",        testSquare,        DisplayProfile::Text, false},
+    //{"Circle",        testCircle,        DisplayProfile::Text, false},
+    //{"Cross",         testCross,         DisplayProfile::Text, false},
+    //{"Rotating cube", testRotatingCube,  DisplayProfile::Text, false},
+    //{"Analog clock",  testAnalogClock,   DisplayProfile::Text, false},
+    //{"Digital clock", testDigitalClock,  DisplayProfile::Text, false},
+     //{"DiagonalCross",         drawDiagonalCross,         DisplayProfile::Text, false},
+     //{"Triangle",      testTriangle,      DisplayProfile::Text, false},
+     //{"Filled square", testFilledSquare,  DisplayProfile::Text, false},//sus
+     //{"Diamond",       testDiamond,       DisplayProfile::Text, false},//sus
+     //{"Rotating cube", testRotatingCube,  DisplayProfile::Text, false},
+     {"Chessboard",    testChessboard,    DisplayProfile::Raster,  true},
+     //{"ScrollingText",   testScrollingText,          DisplayProfile::Text, false},
 };
 
 constexpr uint16_t TEST_COUNT = sizeof(tests) / sizeof(tests[0]);
