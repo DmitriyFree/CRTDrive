@@ -209,7 +209,7 @@ void drawAnalogClock(
     };
 
     const int lengths[] = {100, 150, 160};
-    const int widths[]  = {20, 12, 1};
+    const int widths[]  = {20, 15, 1};
 
     for (int i = 0; i < 3; ++i)
     {
