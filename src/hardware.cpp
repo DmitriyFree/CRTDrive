@@ -26,8 +26,8 @@ namespace
         12, 10,        // X / Y resolutions
         RASTER_SCALE_X,
         RASTER_SCALE_Y,
-        40,
-        20
+        30,
+        25
     };
     constexpr PwmConfig TEXT_CONFIG {
         156250, 156250,

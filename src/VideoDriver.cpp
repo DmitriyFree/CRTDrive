@@ -121,8 +121,6 @@ static void scanFrame(const uint8_t* frame)
                     }
 
                     // Compensate the starting position.
-                    beamOff();
-
                     setPoint(
                         compensateDeadZone(xPosition[start], deadZoneX),
                         compensateDeadZone(yPosition[row], deadZoneY)
@@ -130,23 +128,20 @@ static void scanFrame(const uint8_t* frame)
 
                     delayMicroseconds(SETTLE_US);
 
-                    // Draw the run using the original pixel-by-pixel logic.
                     int p = start;
 
                     while (p != end)
                     {
                         const uint8_t dwell = src[p] >> 6;
 
-                        setPoint(
-                            compensateDeadZone(xPosition[p], deadZoneX),
-                            compensateDeadZone(yPosition[row], deadZoneY)
-                        );
+                        setX(compensateDeadZone(xPosition[p], deadZoneX));
 
                         if (dwell != 0)
                         {
                             beamOn();
                             delayNanoseconds(DWELL_STEP_nS * dwell);
                             beamOff();
+                            delayNanoseconds(DWELL_STEP_nS);
                         }
 
                         p += reverse ? -1 : 1;
