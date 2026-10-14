@@ -203,10 +203,11 @@ void videoInit()
     const DisplayProfile wanted =
             displayMode == 2
                 ? DisplayProfile::Raster
-                : DisplayProfile::Vector;
+                : DisplayProfile::Text;
 
     if(wanted == DisplayProfile::Raster)buildTables(RASTER_SCALE_X,RASTER_SCALE_Y);
     if(wanted == DisplayProfile::Vector)buildTables(VECTOR_SCALE_X,VECTOR_SCALE_Y);
+    if(wanted == DisplayProfile::Text)buildTables(TEXT_SCALE_X,TEXT_SCALE_Y);
 }
 
 void videoStart()

@@ -13,18 +13,20 @@ void drawLine(int x1, int y1, int x2, int y2, int delayUs)
     const int dzX = getDisplayDeadZoneX();
     const int dzY = getDisplayDeadZoneY();
 
+    // Lines lying exactly on an axis are moved to its positive side.
+    const bool horizontalAxisLine = (y1 == 0 && y2 == 0);
+    const bool verticalAxisLine   = (x1 == 0 && x2 == 0);
+
     auto pushX = [dzX](int x) -> int
     {
         if (x < 0) return x - dzX;
-        if (x > 0) return x + dzX;
-        return 0;
+        return x + dzX; // Zero goes to the positive side.
     };
 
     auto pushY = [dzY](int y) -> int
     {
         if (y < 0) return y - dzY;
-        if (y > 0) return y + dzY;
-        return 0;
+        return y + dzY; // Zero goes to the positive side.
     };
 
     const int dx = abs(x2 - x1);
@@ -37,14 +39,26 @@ void drawLine(int x1, int y1, int x2, int y2, int delayUs)
 
     while (true)
     {
-        // Avoid sending points directly onto a compensated axis.
-        const bool onDeadZoneX = (dzX > 0 && x1 == 0);
-        const bool onDeadZoneY = (dzY > 0 && y1 == 0);
+        int outX = x1;
+        int outY = y1;
 
-        if (!onDeadZoneX && !onDeadZoneY)
+        if (dzX > 0)
         {
-            setPoint(pushX(x1), pushY(y1));
+            if (verticalAxisLine)
+                outX = dzX;
+            else if (x1 != 0)
+                outX = pushX(x1);
         }
+
+        if (dzY > 0)
+        {
+            if (horizontalAxisLine)
+                outY = dzY;
+            else if (y1 != 0)
+                outY = pushY(y1);
+        }
+
+        setPoint(outX, outY);
 
         if (delayUs > 0)
             delayMicroseconds(delayUs);
@@ -88,8 +102,10 @@ void drawCircle(int radius, int delayUs)
         const float angle = (2.0f * PI * i) / CIRCLE_POINTS;
         const int x = static_cast<int>( radius * cosf(angle) );
         const int y = static_cast<int>( radius * sinf(angle) );
-        setPoint(x, y);
-        delayMicroseconds(delayUs);
+        if(abs(x)>getDisplayDeadZoneX() && abs(y)>getDisplayDeadZoneY()){
+            setPoint(x, y);
+            delayMicroseconds(delayUs);
+        }
     }
 }
 void drawFilledSquare(int size)
@@ -148,7 +164,7 @@ void drawClock(int hours, int minutes, int seconds, int delayUs)
         hours, minutes, seconds
     );
 
-    drawText(text, -210, -20, 9, 20, 5*delayUs);
+    drawText(text, -210, -40, 9, 20, 5*delayUs);
 }
 void drawAnalogClock(int hours, int minutes, int seconds, int delayUs)
 {
@@ -171,7 +187,6 @@ void drawAnalogClock(int hours, int minutes, int seconds, int delayUs)
         drawLine(x, y, cx, cy, delayUs);
     }
 }
-
 
 void drawChess(int cells)
 {

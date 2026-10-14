@@ -43,8 +43,8 @@ namespace
         9, 9,
         TEXT_SCALE_X,
         TEXT_SCALE_Y,
-        67,
-        67
+        72,
+        72
     };
 
     PwmConfig activeConfig = VECTOR_CONFIG;

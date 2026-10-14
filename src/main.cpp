@@ -29,12 +29,12 @@ static uint32_t clockStartMillis = 0;
 
 static void testSquare()
 {
-    drawSquare(150, DELAY_US/4);
+    drawSquare(150, DELAY_US);
 }
 
 static void testCircle()
 {
-    drawCircle(200, DELAY_US);
+    drawCircle(250, DELAY_US);
 }
 
 static void testTriangle()
@@ -47,6 +47,11 @@ static void testCross()
     drawCross(200, DELAY_US);
 }
 
+static void drawDiagonalCross()
+{
+    drawDiagonalCross(200, DELAY_US);
+}
+
 static void testFilledSquare()
 {
     drawFilledSquare(100);
@@ -54,7 +59,7 @@ static void testFilledSquare()
 
 static void testDiamond()
 {
-    drawDiamond(180, DELAY_US);
+    drawDiamond(100, DELAY_US);
 }
 
 static void testAnalogClock()
@@ -83,17 +88,17 @@ static void testDigitalClock()
 
 static void testText()
 {
-    drawText("CRT", -200, -60, 20, 30, 50);
+    drawText("CRT", -160, -70, 20, 20, 50);
 }
 
 static void testScrollingText()
 {
-    drawScrollingText("June is awesome! ", -200, -60, 20, 30, 500);
+    drawScrollingText("Subscribe! ", -160, -70, 20, 20, 500);
 }
 
 static void testRotatingCube()
 {
-    drawRotatingCube(-50, -50, 200, DELAY_US);
+    drawRotatingCube(0, 0, 400, DELAY_US/2);
 }
 
 static void testChessboard()
@@ -116,18 +121,21 @@ struct DemoTest
 static const DemoTest tests[] = {
     // Uncomment or comment entries to choose the test sequence.
 
-     {"Square",        testSquare,        DisplayProfile::Text, false},
-     //{"Circle",        testCircle,        DisplayProfile::Vector, false},
-     //{"Triangle",      testTriangle,      DisplayProfile::Vector, false},
-     //{"Cross",         testCross,         DisplayProfile::Vector, false},
-     //{"Filled square", testFilledSquare,  DisplayProfile::Vector, false},
-     //{"Diamond",       testDiamond,       DisplayProfile::Vector, false},
-     //{"Analog clock",  testAnalogClock,   DisplayProfile::Text, false},
-     //{"Digital clock", testDigitalClock,  DisplayProfile::Text, false},
-     //{"Text",            testText,          DisplayProfile::Text, false},
-     //{"ScrollingText",   testScrollingText,          DisplayProfile::Text, false},
-     //{"Rotating cube", testRotatingCube,  DisplayProfile::Vector, false},
-     //{"Chessboard",    testChessboard,    DisplayProfile::Raster,  true},
+     //{"Square",        testSquare,        DisplayProfile::Text, false},//passed
+     //{"Circle",        testCircle,        DisplayProfile::Text, false},//passed
+     //{"Triangle",      testTriangle,      DisplayProfile::Text, false},//passed
+     {"Cross",         testCross,         DisplayProfile::Text, false},//fail
+     //{"DiagonalCross",         drawDiagonalCross,         DisplayProfile::Text, false},//passed
+     //{"Filled square", testFilledSquare,  DisplayProfile::Text, false},//passed(sus)
+     //{"Diamond",       testDiamond,       DisplayProfile::Text, false},//passed(sus)
+     //{"Analog clock",  testAnalogClock,   DisplayProfile::Text, false},//fails at axis also works weird
+     //{"Digital clock", testDigitalClock,  DisplayProfile::Text, false},//passed
+     //{"Text",            testText,          DisplayProfile::Text, false},//passed
+     //{"ScrollingText",   testScrollingText,          DisplayProfile::Text, false},//passed
+     //{"Rotating cube", testRotatingCube,  DisplayProfile::Text, false},//passed
+     //{"Chessboard",    testChessboard,    DisplayProfile::Text,  true},
+     //todo: dwin strings text
+     //
 };
 
 constexpr uint16_t TEST_COUNT = sizeof(tests) / sizeof(tests[0]);
