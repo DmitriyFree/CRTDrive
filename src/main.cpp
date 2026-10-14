@@ -124,7 +124,7 @@ static const DemoTest tests[] = {
      //{"Square",        testSquare,        DisplayProfile::Text, false},//passed
      //{"Circle",        testCircle,        DisplayProfile::Text, false},//passed
      //{"Triangle",      testTriangle,      DisplayProfile::Text, false},//passed
-     {"Cross",         testCross,         DisplayProfile::Text, false},//fail
+     //{"Cross",         testCross,         DisplayProfile::Text, false},//passed
      //{"DiagonalCross",         drawDiagonalCross,         DisplayProfile::Text, false},//passed
      //{"Filled square", testFilledSquare,  DisplayProfile::Text, false},//passed(sus)
      //{"Diamond",       testDiamond,       DisplayProfile::Text, false},//passed(sus)
@@ -133,7 +133,7 @@ static const DemoTest tests[] = {
      //{"Text",            testText,          DisplayProfile::Text, false},//passed
      //{"ScrollingText",   testScrollingText,          DisplayProfile::Text, false},//passed
      //{"Rotating cube", testRotatingCube,  DisplayProfile::Text, false},//passed
-     //{"Chessboard",    testChessboard,    DisplayProfile::Text,  true},
+     {"Chessboard",    testChessboard,    DisplayProfile::Raster,  true},
      //todo: dwin strings text
      //
 };

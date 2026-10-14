@@ -5,7 +5,6 @@
 enum class DisplayProfile : uint8_t
 {
     Raster,
-    Vector,
     Text
 };
 
@@ -28,13 +27,12 @@ void beamOff();
 
 inline int compensateDeadZone(int value, int deadZone)
 {
-    if (value >= 0)
-        return value + deadZone;
+    if (deadZone <= 0)
+        return value;
 
-    if (value < 0)
-        return value - deadZone;
-
-    //return 0;
+    return value < 0
+        ? value - deadZone
+        : value + deadZone;
 }
 int getDisplayDeadZoneX();
 int getDisplayDeadZoneY();

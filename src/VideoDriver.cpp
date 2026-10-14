@@ -56,9 +56,11 @@ static void buildTables(float x_gain,float y_gain)
             (VIDEO_HEIGHT - 1 - row) * VIDEO_WIDTH;
     }
 }
-
 static void scanFrame(const uint8_t* frame)
 {
+    const int deadZoneX = getDisplayDeadZoneX();
+    const int deadZoneY = getDisplayDeadZoneY();
+
     constexpr int X_SECTIONS = QUADRANTS / 2;
     constexpr int SECTION_WIDTH = VIDEO_WIDTH / (X_SECTIONS > 1 ? X_SECTIONS : 1);
     constexpr int HALF_HEIGHT = VIDEO_HEIGHT / 2;
@@ -106,14 +108,21 @@ static void scanFrame(const uint8_t* frame)
                         end += reverse ? -1 : 1;
                     }
 
+                    const int scanY = compensateDeadZone(yPosition[row], deadZoneY);
+
                     beamOff();
-                    setPoint(xPosition[start], yPosition[row]);
+                    setPoint(
+                        compensateDeadZone(xPosition[start], deadZoneX),
+                        scanY
+                    );
                     delayMicroseconds(SETTLE_US);
 
                     for (int p = start; p != end; p += reverse ? -1 : 1)
                     {
                         if (p != start)
-                            setX(xPosition[p]);
+                        {
+                            setX(compensateDeadZone(xPosition[p], deadZoneX));
+                        }
 
                         beamOn();
                         delayNanoseconds(DWELL_STEP_nS * (src[p] >> 6));
@@ -144,7 +153,7 @@ static void videoScanTask(void*)
         const DisplayProfile wanted =
             displayMode == 2
                 ? DisplayProfile::Raster
-                : DisplayProfile::Vector;
+                : DisplayProfile::Text;
 
         if (wanted != lastProfile)
         {
@@ -155,7 +164,7 @@ static void videoScanTask(void*)
             }
 
             if(wanted == DisplayProfile::Raster)buildTables(RASTER_SCALE_X,RASTER_SCALE_Y);
-            if(wanted == DisplayProfile::Vector)buildTables(VECTOR_SCALE_X,VECTOR_SCALE_Y);
+            if(wanted == DisplayProfile::Text)buildTables(TEXT_SCALE_X,TEXT_SCALE_Y);
             lastProfile = wanted;
         }
 
@@ -206,7 +215,6 @@ void videoInit()
                 : DisplayProfile::Text;
 
     if(wanted == DisplayProfile::Raster)buildTables(RASTER_SCALE_X,RASTER_SCALE_Y);
-    if(wanted == DisplayProfile::Vector)buildTables(VECTOR_SCALE_X,VECTOR_SCALE_Y);
     if(wanted == DisplayProfile::Text)buildTables(TEXT_SCALE_X,TEXT_SCALE_Y);
 }
 

@@ -22,21 +22,12 @@ namespace
     };
 
     constexpr PwmConfig RASTER_CONFIG {
-        19531, 39062,  // X / Y frequencies
-        12, 11,        // X / Y resolutions
+        156250, 156250,  // X / Y frequencies
+        9, 9,        // X / Y resolutions
         RASTER_SCALE_X,
         RASTER_SCALE_Y,
-        10,
-        5
-    };
-
-    constexpr PwmConfig VECTOR_CONFIG {
-        78125, 78125,
-        10, 10,
-        VECTOR_SCALE_X,
-        VECTOR_SCALE_Y,
-        10,
-        5
+        92,
+        80
     };
     constexpr PwmConfig TEXT_CONFIG {
         156250, 156250,
@@ -47,8 +38,8 @@ namespace
         72
     };
 
-    PwmConfig activeConfig = VECTOR_CONFIG;
-    DisplayProfile activeProfile = DisplayProfile::Vector;
+    PwmConfig activeConfig = TEXT_CONFIG;
+    DisplayProfile activeProfile = DisplayProfile::Text;
     bool profileInitialized = false;
 
     int currentXDirection = 1;
@@ -93,11 +84,10 @@ namespace
         switch (profile)
         {
             case DisplayProfile::Raster:  return RASTER_CONFIG;
-            case DisplayProfile::Vector:  return VECTOR_CONFIG;
             case DisplayProfile::Text:    return TEXT_CONFIG;
         }
 
-        return VECTOR_CONFIG;
+        return TEXT_CONFIG;
     }
 }
 
@@ -271,7 +261,7 @@ void hardwareInit()
     profileInitialized = false;
 
     // Set up the initial drawing profile.
-    if (setDisplayProfile(DisplayProfile::Vector))
+    if (setDisplayProfile(DisplayProfile::Text))
     {
         setPoint(0, 0);
         beamOn();
