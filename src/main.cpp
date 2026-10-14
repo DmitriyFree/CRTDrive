@@ -29,7 +29,7 @@ static uint32_t clockStartMillis = 0;
 
 static void testSquare()
 {
-    drawSquare(150, DELAY_US);
+    drawSquare(150, DELAY_US/4);
 }
 
 static void testCircle()
@@ -74,16 +74,21 @@ static void testDigitalClock()
 {
     const uint32_t elapsed = (millis() - clockStartMillis) / 50;
 
-    clockHours = 10 + (elapsed / 3600) % 12;
-    clockMinutes = (elapsed / 60) % 60;
+    clockHours = 23 + (elapsed / 3600) % 12;
+    clockMinutes = 20 + (elapsed / 60) % 60;
     clockSeconds = elapsed % 60;
 
-    drawClock(clockHours, clockMinutes, clockSeconds, 10);
+    drawClock(clockHours, clockMinutes, clockSeconds, 7);
 }
 
 static void testText()
 {
-    drawText("CRT", -255, -40, 20, 20, 50);
+    drawText("CRT", -200, -60, 20, 30, 50);
+}
+
+static void testScrollingText()
+{
+    drawScrollingText("June is awesome! ", -200, -60, 20, 30, 500);
 }
 
 static void testRotatingCube()
@@ -111,17 +116,18 @@ struct DemoTest
 static const DemoTest tests[] = {
     // Uncomment or comment entries to choose the test sequence.
 
-     /*{"Square",        testSquare,        DisplayProfile::Vector, false},
-     {"Circle",        testCircle,        DisplayProfile::Vector, false},
-     {"Triangle",      testTriangle,      DisplayProfile::Vector, false},
-     {"Cross",         testCross,         DisplayProfile::Vector, false},
-     {"Filled square", testFilledSquare,  DisplayProfile::Vector, false},
-     {"Diamond",       testDiamond,       DisplayProfile::Vector, false},
-     {"Analog clock",  testAnalogClock,   DisplayProfile::Vector, false},*/
+     {"Square",        testSquare,        DisplayProfile::Text, false},
+     //{"Circle",        testCircle,        DisplayProfile::Vector, false},
+     //{"Triangle",      testTriangle,      DisplayProfile::Vector, false},
+     //{"Cross",         testCross,         DisplayProfile::Vector, false},
+     //{"Filled square", testFilledSquare,  DisplayProfile::Vector, false},
+     //{"Diamond",       testDiamond,       DisplayProfile::Vector, false},
+     //{"Analog clock",  testAnalogClock,   DisplayProfile::Text, false},
      //{"Digital clock", testDigitalClock,  DisplayProfile::Text, false},
-     {"Text",          testText,          DisplayProfile::Text, false},
-     /*{"Rotating cube", testRotatingCube,  DisplayProfile::Vector, false},
-     {"Chessboard",    testChessboard,    DisplayProfile::Raster,  true},*/
+     //{"Text",            testText,          DisplayProfile::Text, false},
+     //{"ScrollingText",   testScrollingText,          DisplayProfile::Text, false},
+     //{"Rotating cube", testRotatingCube,  DisplayProfile::Vector, false},
+     //{"Chessboard",    testChessboard,    DisplayProfile::Raster,  true},
 };
 
 constexpr uint16_t TEST_COUNT = sizeof(tests) / sizeof(tests[0]);
@@ -200,11 +206,7 @@ static void startTest(uint16_t index)
 
     const DemoTest& test = tests[currentTest];
 
-    if (!setDisplayProfile(test.profile))
-    {
-        Serial.printf("Failed to set profile for test: %s\n", test.name);
-        return;
-    }
+    setDisplayProfile(test.profile);
 
     if (test.usesVideoScanner)
     {
@@ -213,8 +215,6 @@ static void startTest(uint16_t index)
     }
 
     testStartMillis = millis();
-
-    Serial.printf("Test: %s\n", test.name);
 }
 
 static void nextTest()

@@ -8,14 +8,25 @@
 #include <math.h>
 #include <pgmspace.h>
 
-void drawLine(
-    int x1,
-    int y1,
-    int x2,
-    int y2,
-    int delayUs
-)
+void drawLine(int x1, int y1, int x2, int y2, int delayUs)
 {
+    const int dzX = getDisplayDeadZoneX();
+    const int dzY = getDisplayDeadZoneY();
+
+    auto pushX = [dzX](int x) -> int
+    {
+        if (x < 0) return x - dzX;
+        if (x > 0) return x + dzX;
+        return 0;
+    };
+
+    auto pushY = [dzY](int y) -> int
+    {
+        if (y < 0) return y - dzY;
+        if (y > 0) return y + dzY;
+        return 0;
+    };
+
     const int dx = abs(x2 - x1);
     const int sx = x1 < x2 ? 1 : -1;
 
@@ -26,8 +37,17 @@ void drawLine(
 
     while (true)
     {
-        setPoint(x1, y1);
-        delayMicroseconds(delayUs);
+        // Avoid sending points directly onto a compensated axis.
+        const bool onDeadZoneX = (dzX > 0 && x1 == 0);
+        const bool onDeadZoneY = (dzY > 0 && y1 == 0);
+
+        if (!onDeadZoneX && !onDeadZoneY)
+        {
+            setPoint(pushX(x1), pushY(y1));
+        }
+
+        if (delayUs > 0)
+            delayMicroseconds(delayUs);
 
         if (x1 == x2 && y1 == y2)
             break;
@@ -128,7 +148,7 @@ void drawClock(int hours, int minutes, int seconds, int delayUs)
         hours, minutes, seconds
     );
 
-    drawText(text, -240, -20, 10, 20, 5*delayUs);
+    drawText(text, -210, -20, 9, 20, 5*delayUs);
 }
 void drawAnalogClock(int hours, int minutes, int seconds, int delayUs)
 {
@@ -177,9 +197,6 @@ void drawChess(int cells)
 void drawText(const char* text, int x, int y,
               int pixelSizeX, int pixelSizeY, int delayUs)
 {
-    constexpr int TEXT_DEAD_ZONE_X = 26;
-    constexpr int TEXT_DEAD_ZONE_Y = 20;
-
     const int charWidth = 6 * pixelSizeX;
 
     while (*text)
@@ -197,39 +214,14 @@ void drawText(const char* text, int x, int y,
 
                     const int px = x + col * pixelSizeX;
                     const int py = y + row * pixelSizeY;
-
-                    // Push the whole stroke away from Y = 0.
-                    const int adjustedY =
-                        py < 0 ? py - TEXT_DEAD_ZONE_Y
-                               : py > 0 ? py + TEXT_DEAD_ZONE_Y
-                                        : 0;
-
-                    // Push the whole stroke away from X = 0.
-                    const int rawEnd = px + pixelSizeX - 1;
-                    const int lineStart =
-                        px < 0 ? px - TEXT_DEAD_ZONE_X
-                               : px + TEXT_DEAD_ZONE_X;
-                    const int lineEnd =
-                        rawEnd < 0 ? rawEnd - TEXT_DEAD_ZONE_X
-                                   : rawEnd + TEXT_DEAD_ZONE_X;
-
-                    // Clip against the X-axis dead zone.
-                    const int leftEnd = min(lineEnd, -TEXT_DEAD_ZONE_X - 1);
-                    const int rightStart = max(lineStart, TEXT_DEAD_ZONE_X + 1);
-
-                    if (lineStart <= leftEnd)
-                    {
-                        beamOn();
-                        drawLine(lineStart, adjustedY, leftEnd, adjustedY, delayUs);
-                        beamOff();
-                    }
-
-                    if (lineEnd >= rightStart)
-                    {
-                        beamOn();
-                        drawLine(rightStart, adjustedY, lineEnd, adjustedY, delayUs);
-                        beamOff();
-                    }
+                    
+                    beamOn();
+                    drawLine(
+                        px, py,
+                        px + pixelSizeX - 1, py,
+                        delayUs
+                    );
+                    beamOff();
                 }
             }
         }
@@ -238,14 +230,19 @@ void drawText(const char* text, int x, int y,
         ++text;
     }
 }
-void drawScrollingText(const char* text, int x, int y, int pixelSize)
+void drawScrollingText(
+    const char* text,
+    int x,
+    int y,
+    int pixelSizeX,
+    int pixelSizeY,
+    int glyphBudgetUs = 15000)
 {
-    constexpr int visibleColumns = 24;
-    constexpr int glyphBudgetUs = 15000;
+    constexpr int visibleColumns = 20;
     constexpr int charWidth = 6;
     constexpr int maxCharacters = 128;
 
-    // Decode UTF-8 string into Unicode codepoints
+    // Decode UTF-8 string into Unicode codepoints.
     uint32_t characters[maxCharacters];
     int textLength = 0;
 
@@ -289,7 +286,6 @@ void drawScrollingText(const char* text, int x, int y, int pixelSize)
 
             const Glyph* glyph = findGlyph(characters[charIndex]);
 
-            // Count all lines in this glyph
             int lineCount = 0;
 
             if (glyph)
@@ -304,17 +300,16 @@ void drawScrollingText(const char* text, int x, int y, int pixelSize)
                 }
             }
 
-            // Space / unknown glyph
+            // Space or unknown glyph.
             if (lineCount == 0)
             {
                 delayMicroseconds(glyphBudgetUs);
                 continue;
             }
 
-            // Equal total time for every glyph
+            // Equal total time budget for each glyph.
             const int delayUs = glyphBudgetUs / lineCount;
 
-            // Draw visible portion of glyph
             for (int row = 0; row < 7; ++row)
             {
                 for (int c = 0; c < 5; ++c)
@@ -328,21 +323,18 @@ void drawScrollingText(const char* text, int x, int y, int pixelSize)
                         (glyphTextCol - offset + totalColumns)
                         % totalColumns;
 
-                    // Outside visible window
                     if (relativeCol >= visibleColumns)
                         continue;
 
-                    const int px = x + relativeCol * pixelSize;
-                    const int py = y + row * pixelSize;
+                    const int px = x + relativeCol * pixelSizeX;
+                    const int py = y + row * pixelSizeY;
+                    
                     beamOn();
                     drawLine(
-                        px,
-                        py,
-                        px + pixelSize - 1,
-                        py,
-                        5
+                        px, py,
+                        px + pixelSizeX - 1, py,
+                        delayUs
                     );
-                    delayMicroseconds(delayUs);
                     beamOff();
                 }
             }

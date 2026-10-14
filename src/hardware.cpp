@@ -17,26 +17,34 @@ namespace
         uint8_t resolutionY;
         float scaleX;
         float scaleY;
+        int deadZoneX;
+        int deadZoneY;
     };
 
     constexpr PwmConfig RASTER_CONFIG {
         19531, 39062,  // X / Y frequencies
         12, 11,        // X / Y resolutions
         RASTER_SCALE_X,
-        RASTER_SCALE_Y
+        RASTER_SCALE_Y,
+        10,
+        5
     };
 
     constexpr PwmConfig VECTOR_CONFIG {
         78125, 78125,
         10, 10,
         VECTOR_SCALE_X,
-        VECTOR_SCALE_Y
+        VECTOR_SCALE_Y,
+        10,
+        5
     };
     constexpr PwmConfig TEXT_CONFIG {
-        312500, 312500,
-        8, 8,
+        156250, 156250,
+        9, 9,
         TEXT_SCALE_X,
-        TEXT_SCALE_Y
+        TEXT_SCALE_Y,
+        67,
+        67
     };
 
     PwmConfig activeConfig = VECTOR_CONFIG;
@@ -86,6 +94,7 @@ namespace
         {
             case DisplayProfile::Raster:  return RASTER_CONFIG;
             case DisplayProfile::Vector:  return VECTOR_CONFIG;
+            case DisplayProfile::Text:    return TEXT_CONFIG;
         }
 
         return VECTOR_CONFIG;
@@ -193,10 +202,10 @@ void setX(int x)
 
         fastPwmX(-x);
     }
-    else
+    /*else
     {
         fastPwmX(0);
-    }
+    }*/
 }
 
 void setY(int y)
@@ -224,10 +233,10 @@ void setY(int y)
 
         fastPwmY(-y);
     }
-    else
+    /*else
     {
         fastPwmY(0);
-    }
+    }*/
 }
 
 void setPoint(int x, int y)
@@ -267,4 +276,13 @@ void hardwareInit()
         setPoint(0, 0);
         beamOn();
     }
+}
+int getDisplayDeadZoneX()
+{
+    return activeConfig.deadZoneX;
+}
+
+int getDisplayDeadZoneY()
+{
+    return activeConfig.deadZoneY;
 }

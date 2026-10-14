@@ -29,8 +29,8 @@ constexpr float RASTER_SCALE_X = 0.4f;
 constexpr float RASTER_SCALE_Y = 0.6f;
 constexpr float VECTOR_SCALE_X = 1.6f;
 constexpr float VECTOR_SCALE_Y = 1.6f;
-constexpr float TEXT_SCALE_X = 3.0f;
-constexpr float TEXT_SCALE_Y = 3.0f;
+constexpr float TEXT_SCALE_X = 0.6f;
+constexpr float TEXT_SCALE_Y = 0.6f;
 
 static constexpr int DELAY_US = 100;
 static constexpr int SETTLE_US = 40;

@@ -18,5 +18,5 @@ void drawAnalogClock(int hours, int minutes, int seconds, int delayUs);
 void drawChess(int cells);
 
 void drawText(const char* text, int x, int y, int pixelSizeX, int pixelSizeY, int delayUs);
-void drawScrollingText(const char* text, int x, int y, int pixelSize);
+void drawScrollingText(const char* text, int x, int y, int pixelSizeX, int pixelSizeY, int glyphBudgetUs);
 void drawRotatingCube(int cx, int cy, int size, int delayUs);

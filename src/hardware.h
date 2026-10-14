@@ -25,3 +25,16 @@ void setPoint(int x, int y);
 
 void beamOn();
 void beamOff();
+
+inline int compensateDeadZone(int value, int deadZone)
+{
+    if (value >= 0)
+        return value + deadZone;
+
+    if (value < 0)
+        return value - deadZone;
+
+    //return 0;
+}
+int getDisplayDeadZoneX();
+int getDisplayDeadZoneY();
