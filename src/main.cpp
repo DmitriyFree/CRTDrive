@@ -128,12 +128,12 @@ static const DemoTest tests[] = {
      //{"DiagonalCross",         drawDiagonalCross,         DisplayProfile::Text, false},//passed
      //{"Filled square", testFilledSquare,  DisplayProfile::Text, false},//passed(sus)
      //{"Diamond",       testDiamond,       DisplayProfile::Text, false},//passed(sus)
-     //{"Analog clock",  testAnalogClock,   DisplayProfile::Text, false},//fails at axis also works weird
+     {"Analog clock",  testAnalogClock,   DisplayProfile::Text, false},//fails at axis also works weird
      //{"Digital clock", testDigitalClock,  DisplayProfile::Text, false},//passed
      //{"Text",            testText,          DisplayProfile::Text, false},//passed
      //{"ScrollingText",   testScrollingText,          DisplayProfile::Text, false},//passed
      //{"Rotating cube", testRotatingCube,  DisplayProfile::Text, false},//passed
-     {"Chessboard",    testChessboard,    DisplayProfile::Raster,  true},
+     //{"Chessboard",    testChessboard,    DisplayProfile::Raster,  true},
      //todo: dwin strings text
      //
 };

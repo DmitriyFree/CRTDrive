@@ -166,25 +166,74 @@ void drawClock(int hours, int minutes, int seconds, int delayUs)
 
     drawText(text, -210, -40, 9, 20, 5*delayUs);
 }
-void drawAnalogClock(int hours, int minutes, int seconds, int delayUs)
+void drawAnalogClock(
+    int hours,
+    int minutes,
+    int seconds,
+    int delayUs
+)
 {
-    constexpr int cx = 0, cy = 0;
-    float pi = 3.141592;
+    int hourMarks = 12;
+
+    constexpr int cx = 0;
+    constexpr int cy = 0;
+
+    hours   = ((hours % 12) + 12) % 12;
+    minutes = ((minutes % 60) + 60) % 60;
+    seconds = ((seconds % 60) + 60) % 60;
+
+    // Optional hour marks: 0, 4, or 12.
+    if (hourMarks == 4 || hourMarks == 12)
+    {
+        constexpr float markInner = 170.0f;
+        constexpr float markOuter = 185.0f;
+
+        for (int i = 0; i < hourMarks+1; ++i)
+        {
+            const float angle =
+                2.0f * PI * i / 12.0f - PI / 2.0f;
+
+            const int x1 = cx + lroundf(markInner * cosf(angle));
+            const int y1 = cy + lroundf(markInner * sinf(angle));
+            const int x2 = cx + lroundf(markOuter * cosf(angle));
+            const int y2 = cy + lroundf(markOuter * sinf(angle));
+
+            drawLine(x1, y1, x2, y2, delayUs);
+        }
+    }
+
     const float angles[] = {
-        2 *pi * ((hours % 12 + minutes / 60.0f) / 12.0f) - pi / 2,
-        2 * pi * ((minutes + seconds / 60.0f) / 60.0f) - pi / 2,
-        2 * pi * (seconds / 60.0f) - pi / 2
+        2.0f * PI * (hours + minutes / 60.0f) / 12.0f - PI / 2.0f,
+        2.0f * PI * (minutes + seconds / 60.0f) / 60.0f - PI / 2.0f,
+        2.0f * PI * seconds / 60.0f - PI / 2.0f
     };
 
-    const int lengths[] = {100, 150, 200};
+    const int lengths[] = {100, 150, 160};
+    const int widths[]  = {20, 12, 1};
 
     for (int i = 0; i < 3; ++i)
     {
-        const int x = cx + lengths[i] * cosf(angles[i]);
-        const int y = cy + lengths[i] * sinf(angles[i]);
+        const float dx = cosf(angles[i]);
+        const float dy = sinf(angles[i]);
 
-        drawLine(cx, cy, x, y, delayUs);
-        drawLine(x, y, cx, cy, delayUs);
+        const float px = -dy;
+        const float py =  dx;
+
+        const float base = (i == 0) ? 12.0f : 5.0f;
+        const float halfWidth = widths[i] * 0.5f;
+
+        const int tipX = cx + lroundf(lengths[i] * dx);
+        const int tipY = cy + lroundf(lengths[i] * dy);
+
+        const int leftX = cx + lroundf(base * dx + halfWidth * px);
+        const int leftY = cy + lroundf(base * dy + halfWidth * py);
+
+        const int rightX = cx + lroundf(base * dx - halfWidth * px);
+        const int rightY = cy + lroundf(base * dy - halfWidth * py);
+
+        drawLine(leftX, leftY, rightX, rightY, delayUs);
+        drawLine(rightX, rightY, tipX, tipY, delayUs);
+        drawLine(tipX, tipY, leftX, leftY, delayUs);
     }
 }
 
