@@ -94,7 +94,7 @@ static void testText()
 
 static void testScrollingText()
 {
-    drawScrollingText("Like! Subscribe! ", -220, -50, 15, 15, 500);
+    drawScrollingText("June is awesome! Like, subscribe! ", -220, -50, 15, 15, 500);
 }
 
 static void testRotatingCube()
@@ -122,19 +122,19 @@ struct DemoTest
 static const DemoTest tests[] = {
     // Uncomment or comment entries to choose the test sequence.
     {"Text",            testText,          DisplayProfile::Text, false},
-    {"Square",        testSquare,        DisplayProfile::Text, false},
-    {"Circle",        testCircle,        DisplayProfile::Text, false},
-    {"Cross",         testCross,         DisplayProfile::Text, false},
-    {"Rotating cube", testRotatingCube,  DisplayProfile::Text, false},
-    {"Analog clock",  testAnalogClock,   DisplayProfile::Text, false},
-    {"Digital clock", testDigitalClock,  DisplayProfile::Text, false},
+    //{"Square",        testSquare,        DisplayProfile::Text, false},
+    //{"Circle",        testCircle,        DisplayProfile::Text, false},
+    //{"Cross",         testCross,         DisplayProfile::Text, false},
+    //{"Rotating cube", testRotatingCube,  DisplayProfile::Text, false},
+    //{"Analog clock",  testAnalogClock,   DisplayProfile::Text, false},
+    //{"Digital clock", testDigitalClock,  DisplayProfile::Text, false},
      //{"DiagonalCross",         drawDiagonalCross,         DisplayProfile::Text, false},
      //{"Triangle",      testTriangle,      DisplayProfile::Text, false},
      //{"Filled square", testFilledSquare,  DisplayProfile::Text, false},//sus
      //{"Diamond",       testDiamond,       DisplayProfile::Text, false},//sus
      //{"Rotating cube", testRotatingCube,  DisplayProfile::Text, false},
      {"ScrollingText",   testScrollingText, DisplayProfile::Text, false},
-     {"Chessboard",    testChessboard,    DisplayProfile::Raster,  true},
+     //{"Chessboard",    testChessboard,    DisplayProfile::Raster,  true},
      
 };
 
