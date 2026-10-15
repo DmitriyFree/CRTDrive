@@ -302,7 +302,8 @@ void drawScrollingText(
     int pixelSizeY,
     int glyphBudgetUs = 15000)
 {
-    constexpr int visibleColumns = 20;
+    
+    constexpr int visibleColumns = 24;
     constexpr int charWidth = 6;
     constexpr int maxCharacters = 128;
 
@@ -318,7 +319,7 @@ void drawScrollingText(
     }
 
     int totalColumns = textLength * charWidth;
-
+    int count = totalColumns; //know when to stop
     if (totalColumns == 0)
         return;
 
@@ -405,7 +406,7 @@ void drawScrollingText(
         }
 
         offset = (offset + 1) % totalColumns;
-        if((--totalColumns)==0)break;
+        if(++count>totalColumns*2)break;
     }
 }
 void drawRotatingCube(int cx, int cy, int size, int delayUs)
