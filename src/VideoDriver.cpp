@@ -365,3 +365,8 @@ void videoDisable()
 {
     outputEnabled = false;
 }
+void invertFrameBuffer()
+{
+    for (size_t i = 0; i < VIDEO_PIXELS; ++i)
+        unpackedFrame[i] ^= 0xC0;
+}
