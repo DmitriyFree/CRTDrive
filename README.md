@@ -1,3 +1,3 @@
-Making Электроника МС6205 output graphics.
+Making ИЛД-3 retro CRT output graphics.
 Code behind this project: 
-https://www.youtube.com/watch?v=FPzte9fpFsE
+*video coming soon*

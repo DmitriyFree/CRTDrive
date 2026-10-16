@@ -66,7 +66,7 @@ static void scanFrame(const uint8_t* frame)
         VIDEO_WIDTH / (X_SECTIONS > 1 ? X_SECTIONS : 1);
 
     constexpr int HALF_HEIGHT = VIDEO_HEIGHT / 2;
-
+   
     for (int section = 0; section < X_SECTIONS; ++section)
     {
         const int colStart = section * SECTION_WIDTH;
@@ -364,9 +364,4 @@ void videoEnable()
 void videoDisable()
 {
     outputEnabled = false;
-}
-void invertFrameBuffer()
-{
-    for (size_t i = 0; i < VIDEO_PIXELS; ++i)
-        unpackedFrame[i] ^= 0xC0;
 }
